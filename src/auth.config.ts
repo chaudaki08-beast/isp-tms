@@ -1,4 +1,5 @@
 import type { NextAuthConfig } from 'next-auth';
+import type { Role } from '@prisma/client';
 
 /**
  * Edge-safe Auth.js configuration.
@@ -19,9 +20,7 @@ export const authConfig = {
     jwt({ token, user }) {
       if (user) {
         token.uid = user.id;
-        // @ts-expect-error custom field set in authorize()
         token.role = user.role;
-        // @ts-expect-error custom field set in authorize()
         token.picture = user.image ?? null;
       }
       return token;
@@ -30,8 +29,7 @@ export const authConfig = {
     session({ session, token }) {
       if (session.user) {
         session.user.id = token.uid as string;
-        // @ts-expect-error augmented in next-auth.d.ts
-        session.user.role = token.role;
+        session.user.role = token.role as Role;
       }
       return session;
     },
