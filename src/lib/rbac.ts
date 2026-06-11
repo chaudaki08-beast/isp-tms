@@ -17,11 +17,18 @@ export type SessionUser = {
   role: Role;
 };
 
-/** Role ranking for "at least" checks. Higher = more privileged. */
+/**
+ * Role ranking for "at least" checks. Higher = more privileged.
+ * Note: ACCOUNTANT and CALL_CENTER are specialist roles — most of their access
+ * is granted via explicit requireRole(...) checks rather than the hierarchy.
+ */
 const RANK: Record<Role, number> = {
   TECHNICIAN: 1,
-  TEAM_LEADER: 2,
-  SUPER_ADMIN: 3,
+  CALL_CENTER: 2,
+  ACCOUNTANT: 2,
+  TEAM_LEADER: 3,
+  ADMIN: 4,
+  SUPER_ADMIN: 5,
 };
 
 export function roleAtLeast(role: Role, min: Role): boolean {
@@ -55,5 +62,12 @@ export async function requireAtLeast(min: Role): Promise<SessionUser> {
   return user;
 }
 
-export const isAdmin = (role: Role) => role === Role.SUPER_ADMIN;
-export const isManager = (role: Role) => role === Role.SUPER_ADMIN || role === Role.TEAM_LEADER;
+export const isAdmin = (role: Role) => role === Role.SUPER_ADMIN || role === Role.ADMIN;
+export const isManager = (role: Role) =>
+  role === Role.SUPER_ADMIN || role === Role.ADMIN || role === Role.TEAM_LEADER;
+/** Roles permitted to handle billing, invoices and payments. */
+export const canBill = (role: Role) =>
+  role === Role.SUPER_ADMIN || role === Role.ADMIN || role === Role.ACCOUNTANT;
+/** Roles permitted to create/manage customers. */
+export const canManageCustomers = (role: Role) =>
+  role === Role.SUPER_ADMIN || role === Role.ADMIN || role === Role.CALL_CENTER;

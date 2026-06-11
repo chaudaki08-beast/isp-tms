@@ -19,6 +19,14 @@ import {
   ExpenseType,
   ApprovalStatus,
   AttendanceStatus,
+  ConnectionType,
+  CustomerStatus,
+  CustomerEventType,
+  InvoiceStatus,
+  PaymentMethod,
+  OutageStatus,
+  AssetType,
+  AssetStatus,
 } from '@prisma/client';
 import bcrypt from 'bcryptjs';
 
@@ -56,6 +64,24 @@ async function main() {
       role: Role.TEAM_LEADER,
       address: 'Zone North',
     },
+  });
+
+  const adminUser = await prisma.user.upsert({
+    where: { email: 'manager@isp-tms.local' },
+    update: {},
+    create: { employeeCode: 'EMP-0003', name: 'Anand Mehta', email: 'manager@isp-tms.local', mobile: '+919000000003', passwordHash, role: Role.ADMIN },
+  });
+
+  const accountant = await prisma.user.upsert({
+    where: { email: 'accounts@isp-tms.local' },
+    update: {},
+    create: { employeeCode: 'EMP-0004', name: 'Pooja Shah', email: 'accounts@isp-tms.local', mobile: '+919000000004', passwordHash, role: Role.ACCOUNTANT },
+  });
+
+  const callCenter = await prisma.user.upsert({
+    where: { email: 'callcenter@isp-tms.local' },
+    update: {},
+    create: { employeeCode: 'EMP-0005', name: 'Neha Gupta', email: 'callcenter@isp-tms.local', mobile: '+919000000005', passwordHash, role: Role.CALL_CENTER },
   });
 
   const techSeed = [
@@ -242,10 +268,90 @@ async function main() {
     data: { ratingAvg: 5, ratingCount: 1 },
   });
 
+  // ── Plans & Packages ─────────────────────────────────────────────────────
+  const planBasic = await prisma.plan.upsert({
+    where: { id: 'seed-plan-basic' },
+    update: {},
+    create: { id: 'seed-plan-basic', name: 'Home 50 Mbps', speedMbps: 50, fup: 'Unlimited', monthlyCost: 499, validityDays: 30 },
+  });
+  const planPro = await prisma.plan.upsert({
+    where: { id: 'seed-plan-pro' },
+    update: {},
+    create: { id: 'seed-plan-pro', name: 'Pro 200 Mbps', speedMbps: 200, fup: 'Unlimited', monthlyCost: 999, validityDays: 30 },
+  });
+  const packSports = await prisma.package.upsert({
+    where: { id: 'seed-pack-sports' },
+    update: {},
+    create: { id: 'seed-pack-sports', name: 'Sports + Entertainment', channels: '250+ channels incl. sports & HD', price: 300 },
+  });
+
+  // ── Customers ────────────────────────────────────────────────────────────
+  const cust1 = await prisma.customer.upsert({
+    where: { code: 'CUST-0001' },
+    update: {},
+    create: {
+      code: 'CUST-0001', name: 'Meena Iyer', mobile: '+919812345678', email: 'meena@example.com',
+      address: '14, MG Road, Indiranagar, Bengaluru', area: 'Indiranagar', lat: 12.9719, lng: 77.6412,
+      connectionType: ConnectionType.FIBER, status: CustomerStatus.ACTIVE,
+      installationDate: new Date('2025-01-10'), activationDate: new Date('2025-01-11'),
+      createdById: callCenter.id,
+      subscriptions: { create: { planId: planPro.id, packageId: packSports.id, monthlyAmount: 1299 } },
+      events: { create: [{ type: CustomerEventType.CREATED, title: 'Customer onboarded', actorId: callCenter.id }] },
+    },
+  });
+  const cust2 = await prisma.customer.upsert({
+    where: { code: 'CUST-0002' },
+    update: {},
+    create: {
+      code: 'CUST-0002', name: 'Rohit Gupta', mobile: '+919765432100',
+      address: '5, HSR Layout Sector 2, Bengaluru', area: 'HSR Layout',
+      connectionType: ConnectionType.CABLE, status: CustomerStatus.ACTIVE,
+      installationDate: new Date('2025-03-05'),
+      createdById: adminUser.id,
+      subscriptions: { create: { planId: planBasic.id, monthlyAmount: 499 } },
+      events: { create: [{ type: CustomerEventType.CREATED, title: 'Customer onboarded', actorId: adminUser.id }] },
+    },
+  });
+
+  // ── Invoice + Payment ────────────────────────────────────────────────────
+  const dueDate = new Date(); dueDate.setDate(dueDate.getDate() + 7);
+  const invoice = await prisma.invoice.upsert({
+    where: { number: 'INV-2026-0001' },
+    update: {},
+    create: {
+      number: 'INV-2026-0001', customerId: cust1.id, dueDate,
+      subtotal: 1299, tax: 0, total: 1299, status: InvoiceStatus.PENDING, createdById: accountant.id,
+      items: { create: [{ description: 'Pro 200 Mbps + Sports package (monthly)', quantity: 1, unitPrice: 1299, amount: 1299 }] },
+    },
+  });
+  await prisma.payment.create({
+    data: { customerId: cust2.id, amount: 499, method: PaymentMethod.UPI, reference: 'UPI-TXN-0001', receivedById: accountant.id },
+  });
+
+  // ── Outage ───────────────────────────────────────────────────────────────
+  await prisma.outage.create({
+    data: { area: 'HSR Layout', reason: 'Fiber cut near main junction', status: OutageStatus.ACTIVE, affectedCount: 42, createdById: adminUser.id, notifiedChannels: ['SMS', 'WHATSAPP'] },
+  });
+
+  // ── Assets ───────────────────────────────────────────────────────────────
+  await prisma.asset.createMany({
+    data: [
+      { type: AssetType.ONT, serialNo: 'ONT-SN-1001', macAddress: 'AA:BB:CC:00:11:22', model: 'GPON-ONT-X1', status: AssetStatus.ASSIGNED, assignedCustomerId: cust1.id, assignedAt: new Date() },
+      { type: AssetType.SET_TOP_BOX, serialNo: 'STB-SN-2001', macAddress: 'AA:BB:CC:33:44:55', model: 'HD-STB-200', status: AssetStatus.AVAILABLE },
+      { type: AssetType.ROUTER, serialNo: 'RTR-SN-3001', model: 'DualBand-AC1200', status: AssetStatus.AVAILABLE },
+    ],
+    skipDuplicates: true,
+  });
+
+  void invoice;
+
   console.log('✅ Seed complete.');
-  console.log('   Super Admin: admin@isp-tms.local / password123');
-  console.log('   Team Leader: leader@isp-tms.local / password123');
-  console.log('   Technician:  tech1@isp-tms.local / password123');
+  console.log('   Super Admin:  admin@isp-tms.local / password123');
+  console.log('   Admin:        manager@isp-tms.local / password123');
+  console.log('   Team Leader:  leader@isp-tms.local / password123');
+  console.log('   Accountant:   accounts@isp-tms.local / password123');
+  console.log('   Call Center:  callcenter@isp-tms.local / password123');
+  console.log('   Technician:   tech1@isp-tms.local / password123');
 }
 
 main()

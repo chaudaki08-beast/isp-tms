@@ -18,6 +18,20 @@ export const STATUS_COLORS: Record<string, string> = {
   ABSENT: 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300',
   HALF_DAY: 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300',
   ON_LEAVE: 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300',
+  // Customer status
+  INACTIVE: 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300',
+  TEMP_DISCONNECTED: 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300',
+  SUSPENDED: 'bg-orange-100 text-orange-700 dark:bg-orange-900/40 dark:text-orange-300',
+  TERMINATED: 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300',
+  // Invoice
+  PARTIAL: 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300',
+  OVERDUE: 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300',
+  // Asset status
+  AVAILABLE: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300',
+  DEFECTIVE: 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300',
+  RETURNED: 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300',
+  // Outage
+  ACTIVE: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300',
 };
 
 export const PRIORITY_COLORS: Record<string, string> = {
@@ -52,3 +66,11 @@ export const COMPLAINT_STATUSES = ['OPEN', 'ASSIGNED', 'IN_PROGRESS', 'RESOLVED'
 export const MATERIAL_CATEGORIES = ['ROUTER', 'ONU', 'FIBER_CABLE', 'RJ45_CONNECTOR', 'POWER_ADAPTER', 'OTHER'];
 export const EXPENSE_TYPES = ['FUEL', 'TRAVEL', 'MATERIAL_PURCHASE', 'MISCELLANEOUS'];
 export const IMAGE_TYPES = ['BEFORE_POLE', 'BEFORE_FIBER', 'BEFORE_SITE', 'AFTER_ROUTER', 'AFTER_SPEEDTEST', 'AFTER_SITE', 'OTHER'];
+
+// CRM / billing / inventory
+export const CONNECTION_TYPES = ['FIBER', 'WIRELESS', 'CABLE'];
+export const CUSTOMER_STATUSES = ['ACTIVE', 'INACTIVE', 'TEMP_DISCONNECTED', 'SUSPENDED', 'TERMINATED'];
+export const PAYMENT_METHODS = ['CASH', 'UPI', 'RAZORPAY', 'PAYTM', 'PHONEPE', 'BANK_TRANSFER', 'OTHER'];
+export const INVOICE_STATUSES = ['PENDING', 'PARTIAL', 'PAID', 'OVERDUE', 'CANCELLED'];
+export const ASSET_TYPES = ['ONT', 'ROUTER', 'SET_TOP_BOX', 'CABLE', 'SPLITTER', 'ACCESSORY'];
+export const ASSET_STATUSES = ['AVAILABLE', 'ASSIGNED', 'DEFECTIVE', 'RETURNED'];

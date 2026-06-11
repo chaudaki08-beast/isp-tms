@@ -12,6 +12,11 @@ import { formatDistanceToNow } from 'date-fns';
 
 type Dashboard = {
   cards: Record<string, number>;
+  crm?: {
+    totalCustomers: number; activeCustomers: number; pendingComplaints: number;
+    activeOutages: number; monthRevenue: number; monthBilled: number;
+    collectionRate: number; outstanding: number;
+  };
   taskStatus: Record<string, number>;
   complaintStatus: Record<string, number>;
   attendanceSummary: { present: number; absent: number; total: number; percentage: number };
@@ -45,8 +50,24 @@ export default function DashboardPage() {
         <StatCard label="Present Technicians" value={c.presentTechnicians} icon={UserCheck} accent="text-emerald-600" />
         <StatCard label="Absent Technicians" value={c.absentTechnicians} icon={UserX} accent="text-red-600" />
         <StatCard label="Active Technicians" value={c.activeTechnicians} icon={Users} />
-        <StatCard label="Revenue" value={`₹${c.revenue}`} icon={IndianRupee} accent="text-violet-600" />
+        <StatCard label="Revenue (This Month)" value={`₹${(c.revenue || 0).toLocaleString('en-IN')}`} icon={IndianRupee} accent="text-violet-600" />
       </div>
+
+      {data.crm && (
+        <div>
+          <h2 className="mb-3 text-lg font-semibold">Business Overview</h2>
+          <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+            <StatCard label="Total Customers" value={data.crm.totalCustomers} icon={Users} />
+            <StatCard label="Active Services" value={data.crm.activeCustomers} icon={CheckCircle2} accent="text-emerald-600" />
+            <StatCard label="Collection Rate" value={`${data.crm.collectionRate}%`} icon={IndianRupee} accent="text-brand-600" />
+            <StatCard label="Outstanding" value={`₹${data.crm.outstanding.toLocaleString('en-IN')}`} icon={IndianRupee} accent="text-red-600" />
+            <StatCard label="Pending Complaints" value={data.crm.pendingComplaints} icon={AlertCircle} accent="text-orange-600" />
+            <StatCard label="Active Outages" value={data.crm.activeOutages} icon={Clock} accent="text-red-600" />
+            <StatCard label="Billed (This Month)" value={`₹${data.crm.monthBilled.toLocaleString('en-IN')}`} icon={IndianRupee} />
+            <StatCard label="Collected (This Month)" value={`₹${data.crm.monthRevenue.toLocaleString('en-IN')}`} icon={IndianRupee} accent="text-emerald-600" />
+          </div>
+        </div>
+      )}
 
       <div className="grid gap-6 lg:grid-cols-3">
         <Card>

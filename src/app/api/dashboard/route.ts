@@ -21,6 +21,8 @@ export const GET = handle(async () => {
       ? { assignedTo: { teamLeaderId: me.id } }
       : {};
 
+  const monthStart = new Date(today.getFullYear(), today.getMonth(), 1);
+
   const [
     todaysInstallations,
     todaysComplaints,
@@ -32,6 +34,13 @@ export const GET = handle(async () => {
     complaintStatusGroups,
     recentActivities,
     technicianStatuses,
+    totalCustomers,
+    activeCustomers,
+    pendingComplaints,
+    activeOutages,
+    monthPayments,
+    monthInvoices,
+    outstandingAgg,
   ] = await Promise.all([
     prisma.task.count({
       where: { ...assigneeScope, type: TaskType.NEW_INSTALLATION, createdAt: { gte: today, lt: tomorrow } },
@@ -69,7 +78,19 @@ export const GET = handle(async () => {
         _count: { select: { assignedTasks: { where: { status: { in: [TaskStatus.ASSIGNED, TaskStatus.IN_PROGRESS] } } } } },
       },
     }),
+    prisma.customer.count({ where: { deletedAt: null } }),
+    prisma.customer.count({ where: { deletedAt: null, status: 'ACTIVE' } }),
+    prisma.complaint.count({ where: { deletedAt: null, status: { in: [ComplaintStatus.OPEN, ComplaintStatus.ASSIGNED, ComplaintStatus.IN_PROGRESS] } } }),
+    prisma.outage.count({ where: { status: 'ACTIVE' } }),
+    prisma.payment.aggregate({ where: { paidAt: { gte: monthStart } }, _sum: { amount: true } }),
+    prisma.invoice.aggregate({ where: { deletedAt: null, issueDate: { gte: monthStart } }, _sum: { total: true } }),
+    prisma.invoice.aggregate({ where: { deletedAt: null, status: { in: ['PENDING', 'PARTIAL', 'OVERDUE'] } }, _sum: { total: true, amountPaid: true } }),
   ]);
+
+  const monthRevenue = Number(monthPayments._sum.amount ?? 0);
+  const monthBilled = Number(monthInvoices._sum.total ?? 0);
+  const collectionRate = monthBilled > 0 ? Math.round((monthRevenue / monthBilled) * 100) : 0;
+  const outstanding = Number(outstandingAgg._sum.total ?? 0) - Number(outstandingAgg._sum.amountPaid ?? 0);
 
   const absentToday = Math.max(0, activeTechnicians - presentToday);
 
@@ -85,7 +106,17 @@ export const GET = handle(async () => {
       presentTechnicians: presentToday,
       absentTechnicians: absentToday,
       activeTechnicians,
-      revenue: 0, // placeholder per spec
+      revenue: monthRevenue,
+    },
+    crm: {
+      totalCustomers,
+      activeCustomers,
+      pendingComplaints,
+      activeOutages,
+      monthRevenue,
+      monthBilled,
+      collectionRate,
+      outstanding,
     },
     taskStatus: statusMap(taskStatusGroups as never),
     complaintStatus: statusMap(complaintStatusGroups as never),

@@ -17,8 +17,81 @@ datasource db {
 
 enum Role {
   SUPER_ADMIN
+  ADMIN
   TEAM_LEADER
+  ACCOUNTANT
+  CALL_CENTER
   TECHNICIAN
+}
+
+enum CustomerStatus {
+  ACTIVE
+  INACTIVE
+  TEMP_DISCONNECTED
+  SUSPENDED
+  TERMINATED
+}
+
+enum ConnectionType {
+  FIBER
+  WIRELESS
+  CABLE
+}
+
+enum SubscriptionStatus {
+  ACTIVE
+  CHANGED
+  CANCELLED
+}
+
+enum InvoiceStatus {
+  PENDING
+  PARTIAL
+  PAID
+  OVERDUE
+  CANCELLED
+}
+
+enum PaymentMethod {
+  CASH
+  UPI
+  RAZORPAY
+  PAYTM
+  PHONEPE
+  BANK_TRANSFER
+  OTHER
+}
+
+enum OutageStatus {
+  ACTIVE
+  RESOLVED
+}
+
+enum AssetType {
+  ONT
+  ROUTER
+  SET_TOP_BOX
+  CABLE
+  SPLITTER
+  ACCESSORY
+}
+
+enum AssetStatus {
+  AVAILABLE
+  ASSIGNED
+  DEFECTIVE
+  RETURNED
+}
+
+enum CustomerEventType {
+  CREATED
+  PLAN_CHANGE
+  STATUS_CHANGE
+  COMPLAINT
+  PAYMENT
+  INSTALLATION
+  EQUIPMENT
+  NOTE
 }
 
 enum UserStatus {
@@ -156,6 +229,13 @@ model User {
   activityLogs       ActivityLog[]
   passwordResets     PasswordResetToken[]
 
+  // CRM / billing relations
+  createdCustomers   Customer[]      @relation("CustomerCreator")
+  customerEvents     CustomerEvent[] @relation("EventActor")
+  createdInvoices    Invoice[]       @relation("InvoiceCreator")
+  receivedPayments   Payment[]       @relation("PaymentReceiver")
+  createdOutages     Outage[]        @relation("OutageCreator")
+
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
   deletedAt DateTime?
@@ -249,6 +329,10 @@ model Task {
   complaintId String?     @unique
   complaint   Complaint?  @relation(fields: [complaintId], references: [id], onDelete: SetNull)
 
+  // Optional link to a CRM customer (Module 1/5).
+  customerId  String?
+  customer    Customer?   @relation(fields: [customerId], references: [id], onDelete: SetNull)
+
   assignedDate DateTime?
   scheduledAt  DateTime?
   startedAt    DateTime?
@@ -268,6 +352,7 @@ model Task {
   @@index([type])
   @@index([assignedToId])
   @@index([priority])
+  @@index([customerId])
   @@map("tasks")
 }
 
@@ -305,6 +390,10 @@ model Complaint {
   createdById  String?
   createdBy    User?   @relation("ComplaintCreator", fields: [createdById], references: [id], onDelete: SetNull)
 
+  // Optional link to a CRM customer (tickets raised against a customer).
+  customerId   String?
+  customer     Customer? @relation(fields: [customerId], references: [id], onDelete: SetNull)
+
   // Repeat-complaint tracking (self relation)
   parentComplaintId String?
   parentComplaint   Complaint?  @relation("RepeatComplaints", fields: [parentComplaintId], references: [id], onDelete: SetNull)
@@ -326,6 +415,7 @@ model Complaint {
   @@index([status])
   @@index([category])
   @@index([assignedToId])
+  @@index([customerId])
   @@map("complaints")
 }
 
@@ -491,4 +581,242 @@ model ActivityLog {
   @@index([userId])
   @@index([entityType, entityId])
   @@map("activity_logs")
+}
+
+// ─── CRM: Customers ──────────────────────────────────────────────────────────
+
+model Customer {
+  id             String         @id @default(cuid())
+  code           String         @unique // auto-generated, e.g. CUST-AB12CD
+  name           String
+  mobile         String
+  altMobile      String?
+  email          String?
+  address        String
+  area           String?        // area / zone
+  lat            Float?
+  lng            Float?
+  photo          String?
+  aadhaarUrl     String?
+  panUrl         String?
+  kycDocs        Json?          // [{ label, url }]
+  connectionType ConnectionType @default(FIBER)
+  status         CustomerStatus @default(ACTIVE)
+  installationDate DateTime?
+  activationDate   DateTime?
+
+  createdById String?
+  createdBy   User?   @relation("CustomerCreator", fields: [createdById], references: [id], onDelete: SetNull)
+
+  subscriptions Subscription[]
+  invoices      Invoice[]
+  payments      Payment[]
+  tickets       Complaint[]
+  tasks         Task[]
+  assets        Asset[]
+  events        CustomerEvent[]
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  @@index([status])
+  @@index([area])
+  @@index([connectionType])
+  @@index([mobile])
+  @@map("customers")
+}
+
+model CustomerEvent {
+  id          String            @id @default(cuid())
+  customerId  String
+  customer    Customer          @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  type        CustomerEventType
+  title       String
+  description String?
+  meta        Json?
+  actorId     String?
+  actor       User?             @relation("EventActor", fields: [actorId], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+
+  @@index([customerId, createdAt])
+  @@map("customer_events")
+}
+
+// ─── Plans & Packages ────────────────────────────────────────────────────────
+
+model Plan {
+  id          String   @id @default(cuid())
+  name        String
+  speedMbps   Int                       // download speed
+  fup         String?                   // fair-usage policy, e.g. "Unlimited" / "500 GB"
+  monthlyCost Decimal  @db.Decimal(10, 2)
+  validityDays Int     @default(30)
+  isActive    Boolean  @default(true)
+
+  subscriptions Subscription[]
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  @@map("plans")
+}
+
+model Package {
+  id        String   @id @default(cuid())
+  name      String
+  channels  String?                     // comma-separated or description
+  price     Decimal  @db.Decimal(10, 2)
+  isActive  Boolean  @default(true)
+
+  subscriptions Subscription[]
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  @@map("packages")
+}
+
+// A customer's active/historical plan + cable package mapping.
+model Subscription {
+  id            String             @id @default(cuid())
+  customerId    String
+  customer      Customer           @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  planId        String?
+  plan          Plan?              @relation(fields: [planId], references: [id], onDelete: SetNull)
+  packageId     String?
+  package       Package?           @relation(fields: [packageId], references: [id], onDelete: SetNull)
+  monthlyAmount Decimal            @db.Decimal(10, 2)
+  status        SubscriptionStatus @default(ACTIVE)
+  startDate     DateTime           @default(now())
+  endDate       DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([customerId, status])
+  @@map("subscriptions")
+}
+
+// ─── Billing & Payments ──────────────────────────────────────────────────────
+
+model Invoice {
+  id          String        @id @default(cuid())
+  number      String        @unique // e.g. INV-2026-0001
+  customerId  String
+  customer    Customer      @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  periodStart DateTime?     @db.Date
+  periodEnd   DateTime?     @db.Date
+  issueDate   DateTime      @default(now()) @db.Date
+  dueDate     DateTime      @db.Date
+  subtotal    Decimal       @db.Decimal(10, 2)
+  tax         Decimal       @db.Decimal(10, 2) @default(0)
+  total       Decimal       @db.Decimal(10, 2)
+  amountPaid  Decimal       @db.Decimal(10, 2) @default(0)
+  status      InvoiceStatus @default(PENDING)
+  notes       String?
+
+  createdById String?
+  createdBy   User?   @relation("InvoiceCreator", fields: [createdById], references: [id], onDelete: SetNull)
+
+  items    InvoiceItem[]
+  payments Payment[]
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  @@index([customerId])
+  @@index([status])
+  @@index([dueDate])
+  @@map("invoices")
+}
+
+model InvoiceItem {
+  id          String  @id @default(cuid())
+  invoiceId   String
+  invoice     Invoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  description String
+  quantity    Int     @default(1)
+  unitPrice   Decimal @db.Decimal(10, 2)
+  amount      Decimal @db.Decimal(10, 2)
+
+  @@index([invoiceId])
+  @@map("invoice_items")
+}
+
+model Payment {
+  id         String        @id @default(cuid())
+  customerId String
+  customer   Customer      @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  invoiceId  String?
+  invoice    Invoice?      @relation(fields: [invoiceId], references: [id], onDelete: SetNull)
+  amount     Decimal       @db.Decimal(10, 2)
+  method     PaymentMethod @default(CASH)
+  reference  String?       // txn id / receipt no
+  note       String?
+  paidAt     DateTime      @default(now())
+
+  receivedById String?
+  receivedBy   User?   @relation("PaymentReceiver", fields: [receivedById], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+
+  @@index([customerId])
+  @@index([invoiceId])
+  @@index([paidAt])
+  @@map("payments")
+}
+
+// ─── Outage & Maintenance ────────────────────────────────────────────────────
+
+model Outage {
+  id                 String       @id @default(cuid())
+  area               String
+  reason             String
+  description        String?
+  status             OutageStatus @default(ACTIVE)
+  startTime          DateTime     @default(now())
+  expectedResolution DateTime?
+  actualResolution   DateTime?
+  affectedCount      Int          @default(0)
+  notifiedChannels   Json?        // ["SMS","WHATSAPP","EMAIL"]
+
+  createdById String?
+  createdBy   User?   @relation("OutageCreator", fields: [createdById], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([status])
+  @@index([area])
+  @@map("outages")
+}
+
+// ─── Inventory: Serialized Assets ────────────────────────────────────────────
+
+model Asset {
+  id           String      @id @default(cuid())
+  type         AssetType
+  serialNo     String?     @unique
+  macAddress   String?
+  model        String?
+  status       AssetStatus @default(AVAILABLE)
+  assignedCustomerId String?
+  assignedCustomer   Customer? @relation(fields: [assignedCustomerId], references: [id], onDelete: SetNull)
+  assignedAt   DateTime?
+  purchaseDate DateTime?
+  notes        String?
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  @@index([type])
+  @@index([status])
+  @@index([assignedCustomerId])
+  @@map("assets")
 }

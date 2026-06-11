@@ -1,8 +1,8 @@
-# ISP Technician Management System
+# ISP & Cable Operator Management System
 
-A production-ready, mobile-first **field-operations platform** for Internet Service Providers — built to deploy with a single `git push` to **Vercel**.
+A production-ready, mobile-first **ISP CRM + Billing + Operations platform** for Internet Service Providers and Cable TV operators — built to deploy with a single `git push` to **Vercel**.
 
-Technicians check in with GPS + selfie, receive and update jobs, upload before/after photos, capture customer signatures, log materials and expenses — all from an installable PWA. Team Leaders assign and approve work; Super Admins manage everyone and watch the whole operation live.
+Manage customers (CRM with KYC & 360° timeline), plans & packages, billing & payments (invoices, bulk generation, PDF, collection tracking), tickets/complaints, installations & field work, area outages, and serialized inventory (ONT/router/STB with serial + MAC) — plus the original field-ops toolkit: technician attendance with GPS + selfie, live tracking, photo verification, customer signatures, materials, expenses and feedback. All from an installable PWA with role-based access for five+ roles.
 
 ---
 
@@ -21,15 +21,20 @@ Technicians check in with GPS + selfie, receive and update jobs, upload before/a
 | PWA | manifest + service worker (offline shell, install, push) |
 | Hosting | **Vercel** (zero server admin) |
 
-## Roles
+## Roles (RBAC)
 
-- **Super Admin** — manage users, all tasks/complaints/attendance/materials/expenses, reports, analytics, live tracking, audit logs.
-- **Team Leader** — assign & approve work, monitor their team, view reports/analytics/tracking.
-- **Technician** — check in/out, receive & progress tasks, upload photos & signatures, log materials & expenses, view ratings.
+- **Super Admin** — full access to every module + user/role management & audit logs.
+- **Admin** — customers, tickets, billing, plans, inventory, outages, staff assignments, reports.
+- **Accountant** — billing, invoices, payments, collection reports.
+- **Call Center** — create customers & tickets, view customer history.
+- **Team Leader** — assign & approve field work, monitor their team, outages, tracking. *(bonus role)*
+- **Technician** — check in/out, receive & progress jobs, upload photos & signatures, log materials & expenses.
 
 ## Modules
 
-Authentication · Dashboard · Attendance · Tasks · Complaints · GPS Tracking · Photo Verification · Customer Signature · Materials · Expenses · Feedback · Reports · Notifications · Analytics · PWA.
+**ISP CRM & Operations:** Customer Management (CRM + KYC + timeline) · Ticket & Complaint Management · Billing & Payments (invoices, bulk, PDF, reminders-ready) · Plans & Packages · Installation / Field Work · Outage & Maintenance · Inventory & Serialized Assets · Notifications & Alerts (email/SMS/WhatsApp-ready) · Reports & Analytics (billing, area, collection) · User & Role Management.
+
+**Field-ops toolkit (bonus):** Attendance (GPS + selfie) · Live GPS Tracking · Photo Verification · Customer Signature · Materials · Expenses · Feedback · PWA (offline, install, push).
 
 ## Quick start
 
@@ -49,7 +54,15 @@ npm run dev             # http://localhost:3000
 ```
 
 **Demo accounts** (password `password123`):
-`admin@isp-tms.local` · `leader@isp-tms.local` · `tech1@isp-tms.local`
+
+| Role | Email |
+|---|---|
+| Super Admin | `admin@isp-tms.local` |
+| Admin | `manager@isp-tms.local` |
+| Accountant | `accounts@isp-tms.local` |
+| Call Center | `callcenter@isp-tms.local` |
+| Team Leader | `leader@isp-tms.local` |
+| Technician | `tech1@isp-tms.local` |
 
 ## Documentation
 
