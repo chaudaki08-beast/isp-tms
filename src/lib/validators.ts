@@ -214,3 +214,147 @@ export const createFeedbackSchema = z.object({
   rating: z.number().int().min(1).max(5),
   comment: z.string().optional(),
 });
+
+// ── Customers (CRM) ─────────────────────────────────────────────────────────
+export const connectionTypeEnum = z.enum(['FIBER', 'WIRELESS', 'CABLE']);
+export const customerStatusEnum = z.enum([
+  'ACTIVE',
+  'INACTIVE',
+  'TEMP_DISCONNECTED',
+  'SUSPENDED',
+  'TERMINATED',
+]);
+
+export const createCustomerSchema = z.object({
+  name: z.string().min(2),
+  mobile: z.string().min(6).max(20),
+  altMobile: z.string().max(20).optional(),
+  email: z.string().email().optional().or(z.literal('')),
+  address: z.string().min(3),
+  area: z.string().optional(),
+  lat: z.number().optional(),
+  lng: z.number().optional(),
+  connectionType: connectionTypeEnum.default('FIBER'),
+  status: customerStatusEnum.default('ACTIVE'),
+  installationDate: z.string().optional(),
+  activationDate: z.string().optional(),
+  photo: z.string().optional(),
+  aadhaar: z.string().optional(), // data URL
+  pan: z.string().optional(), // data URL
+  planId: z.string().optional().nullable(),
+  packageId: z.string().optional().nullable(),
+});
+
+export const updateCustomerSchema = createCustomerSchema.partial();
+
+export const customerEventSchema = z.object({
+  type: z.enum(['NOTE', 'STATUS_CHANGE', 'PLAN_CHANGE', 'EQUIPMENT', 'INSTALLATION']).default('NOTE'),
+  title: z.string().min(2),
+  description: z.string().optional(),
+});
+
+// ── Plans & Packages ────────────────────────────────────────────────────────
+export const createPlanSchema = z.object({
+  name: z.string().min(2),
+  speedMbps: z.number().int().positive(),
+  fup: z.string().optional(),
+  monthlyCost: z.number().nonnegative(),
+  validityDays: z.number().int().positive().default(30),
+  isActive: z.boolean().default(true),
+});
+
+export const createPackageSchema = z.object({
+  name: z.string().min(2),
+  channels: z.string().optional(),
+  price: z.number().nonnegative(),
+  isActive: z.boolean().default(true),
+});
+
+export const changeSubscriptionSchema = z.object({
+  planId: z.string().optional().nullable(),
+  packageId: z.string().optional().nullable(),
+  monthlyAmount: z.number().nonnegative(),
+});
+
+// ── Billing ─────────────────────────────────────────────────────────────────
+export const invoiceItemSchema = z.object({
+  description: z.string().min(1),
+  quantity: z.number().int().positive().default(1),
+  unitPrice: z.number().nonnegative(),
+});
+
+export const createInvoiceSchema = z.object({
+  customerId: z.string(),
+  dueDate: z.string(),
+  periodStart: z.string().optional(),
+  periodEnd: z.string().optional(),
+  taxPercent: z.number().min(0).max(100).default(0),
+  notes: z.string().optional(),
+  items: z.array(invoiceItemSchema).min(1),
+});
+
+export const bulkInvoiceSchema = z.object({
+  dueDate: z.string(),
+  taxPercent: z.number().min(0).max(100).default(0),
+  area: z.string().optional(), // restrict to an area, else all active customers
+});
+
+export const paymentMethodEnum = z.enum([
+  'CASH',
+  'UPI',
+  'RAZORPAY',
+  'PAYTM',
+  'PHONEPE',
+  'BANK_TRANSFER',
+  'OTHER',
+]);
+
+export const createPaymentSchema = z.object({
+  customerId: z.string(),
+  invoiceId: z.string().optional().nullable(),
+  amount: z.number().positive(),
+  method: paymentMethodEnum.default('CASH'),
+  reference: z.string().optional(),
+  note: z.string().optional(),
+});
+
+// ── Outages ─────────────────────────────────────────────────────────────────
+export const createOutageSchema = z.object({
+  area: z.string().min(1),
+  reason: z.string().min(2),
+  description: z.string().optional(),
+  expectedResolution: z.string().optional(),
+  notifyChannels: z.array(z.enum(['SMS', 'WHATSAPP', 'EMAIL'])).default([]),
+});
+
+export const resolveOutageSchema = z.object({
+  status: z.enum(['ACTIVE', 'RESOLVED']),
+});
+
+// ── Assets ──────────────────────────────────────────────────────────────────
+export const assetTypeEnum = z.enum([
+  'ONT',
+  'ROUTER',
+  'SET_TOP_BOX',
+  'CABLE',
+  'SPLITTER',
+  'ACCESSORY',
+]);
+export const assetStatusEnum = z.enum(['AVAILABLE', 'ASSIGNED', 'DEFECTIVE', 'RETURNED']);
+
+export const createAssetSchema = z.object({
+  type: assetTypeEnum,
+  serialNo: z.string().optional(),
+  macAddress: z.string().optional(),
+  model: z.string().optional(),
+  purchaseDate: z.string().optional(),
+  notes: z.string().optional(),
+});
+
+export const updateAssetSchema = z.object({
+  status: assetStatusEnum.optional(),
+  assignedCustomerId: z.string().optional().nullable(),
+  macAddress: z.string().optional(),
+  model: z.string().optional(),
+  notes: z.string().optional(),
+});

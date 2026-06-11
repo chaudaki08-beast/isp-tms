@@ -1,11 +1,16 @@
 import type { Role } from '@prisma/client';
 import {
   LayoutDashboard,
+  Users2,
   ClipboardList,
   AlertCircle,
+  Receipt,
+  Layers,
+  CloudOff,
+  Boxes,
+  Package,
   CalendarCheck,
   MapPin,
-  Boxes,
   Wallet,
   Star,
   FileBarChart,
@@ -22,23 +27,32 @@ export type NavItem = {
   roles: Role[];
 };
 
-const ALL: Role[] = ['SUPER_ADMIN', 'TEAM_LEADER', 'TECHNICIAN'];
-const MANAGERS: Role[] = ['SUPER_ADMIN', 'TEAM_LEADER'];
-const ADMIN: Role[] = ['SUPER_ADMIN'];
+// Role groups
+const ALL: Role[] = ['SUPER_ADMIN', 'ADMIN', 'TEAM_LEADER', 'ACCOUNTANT', 'CALL_CENTER', 'TECHNICIAN'];
+const ADMINS: Role[] = ['SUPER_ADMIN', 'ADMIN'];
+const OPS: Role[] = ['SUPER_ADMIN', 'ADMIN', 'TEAM_LEADER']; // operations managers
+const BILLING: Role[] = ['SUPER_ADMIN', 'ADMIN', 'ACCOUNTANT'];
+const CRM: Role[] = ['SUPER_ADMIN', 'ADMIN', 'TEAM_LEADER', 'ACCOUNTANT', 'CALL_CENTER'];
+const FIELD: Role[] = ['SUPER_ADMIN', 'ADMIN', 'TEAM_LEADER', 'TECHNICIAN'];
 
 export const NAV_ITEMS: NavItem[] = [
   { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard, roles: ALL },
-  { href: '/tasks', label: 'Tasks', icon: ClipboardList, roles: ALL },
-  { href: '/complaints', label: 'Complaints', icon: AlertCircle, roles: ALL },
+  { href: '/customers', label: 'Customers', icon: Users2, roles: CRM },
+  { href: '/tasks', label: 'Field Work', icon: ClipboardList, roles: FIELD },
+  { href: '/complaints', label: 'Tickets', icon: AlertCircle, roles: [...FIELD, 'CALL_CENTER'] },
+  { href: '/billing', label: 'Billing', icon: Receipt, roles: BILLING },
+  { href: '/plans', label: 'Plans & Packages', icon: Layers, roles: ADMINS },
+  { href: '/outages', label: 'Outages', icon: CloudOff, roles: OPS },
+  { href: '/assets', label: 'Assets', icon: Boxes, roles: OPS },
+  { href: '/materials', label: 'Materials', icon: Package, roles: FIELD },
   { href: '/attendance', label: 'Attendance', icon: CalendarCheck, roles: ALL },
-  { href: '/tracking', label: 'Live Map', icon: MapPin, roles: MANAGERS },
-  { href: '/materials', label: 'Materials', icon: Boxes, roles: ALL },
-  { href: '/expenses', label: 'Expenses', icon: Wallet, roles: ALL },
+  { href: '/tracking', label: 'Live Map', icon: MapPin, roles: OPS },
+  { href: '/expenses', label: 'Expenses', icon: Wallet, roles: FIELD },
   { href: '/feedback', label: 'Feedback', icon: Star, roles: ALL },
-  { href: '/reports', label: 'Reports', icon: FileBarChart, roles: MANAGERS },
-  { href: '/analytics', label: 'Analytics', icon: LineChart, roles: MANAGERS },
-  { href: '/users', label: 'Users', icon: Users, roles: MANAGERS },
-  { href: '/audit', label: 'Audit Logs', icon: ScrollText, roles: ADMIN },
+  { href: '/reports', label: 'Reports', icon: FileBarChart, roles: [...OPS, 'ACCOUNTANT'] },
+  { href: '/analytics', label: 'Analytics', icon: LineChart, roles: OPS },
+  { href: '/users', label: 'Users', icon: Users, roles: ADMINS },
+  { href: '/audit', label: 'Audit Logs', icon: ScrollText, roles: ['SUPER_ADMIN'] },
   { href: '/profile', label: 'Profile', icon: UserCircle, roles: ALL },
 ];
 

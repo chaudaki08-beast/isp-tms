@@ -23,6 +23,8 @@ export default function ReportsPage() {
         <DownloadCard title="Technician Report" href="/api/reports/technician?format=csv" />
         <DownloadCard title="Complaint Report" href="/api/reports/complaint?format=csv" />
         <DownloadCard title="Attendance Report" href="/api/reports/attendance?format=csv" />
+        <DownloadCard title="Billing & Collection" href="/api/reports/billing?format=csv" />
+        <DownloadCard title="Revenue by Area" href="/api/reports/area?format=csv" />
       </div>
 
       <Card>
