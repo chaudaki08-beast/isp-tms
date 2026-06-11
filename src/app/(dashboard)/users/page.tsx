@@ -75,7 +75,7 @@ function CreateUserModal({ onClose, onDone }: { onClose: () => void; onDone: () 
   const [form, setForm] = useState({ name: '', email: '', mobile: '', password: '', role: 'TECHNICIAN', teamLeaderId: '' });
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
-  const set = (k: string) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => setForm({ ...form, [k]: e.target.value });
+  const set = (k: string) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => setForm({ ...form, [k]: e.target.value });
 
   useEffect(() => { apiGet<{ items: User[] }>('/api/users?role=TEAM_LEADER&perPage=100').then((d) => setLeaders(d.items)).catch(() => {}); }, []);
 

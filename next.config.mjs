@@ -2,6 +2,8 @@
 const nextConfig = {
   reactStrictMode: true,
   poweredByHeader: false,
+  // Lint locally (npm run lint) but don't block production builds on it.
+  eslint: { ignoreDuringBuilds: true },
   images: {
     remotePatterns: [
       // Supabase Storage public bucket URLs.

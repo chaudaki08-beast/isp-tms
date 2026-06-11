@@ -86,7 +86,7 @@ function CreateExpenseModal({ onClose, onDone }: { onClose: () => void; onDone: 
   const [form, setForm] = useState({ type: 'FUEL', amount: '', description: '', expenseDate: today });
   const [receipt, setReceipt] = useState('');
   const [saving, setSaving] = useState(false);
-  const set = (k: string) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => setForm({ ...form, [k]: e.target.value });
+  const set = (k: string) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => setForm({ ...form, [k]: e.target.value });
 
   function onFile(e: React.ChangeEvent<HTMLInputElement>) {
     const f = e.target.files?.[0];
