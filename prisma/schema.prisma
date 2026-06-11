@@ -1,0 +1,494 @@
+// ─────────────────────────────────────────────────────────────────────────────
+// ISP Technician Management System — Prisma schema
+// Database: Supabase Postgres
+// ─────────────────────────────────────────────────────────────────────────────
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+// ─── Enums ───────────────────────────────────────────────────────────────────
+
+enum Role {
+  SUPER_ADMIN
+  TEAM_LEADER
+  TECHNICIAN
+}
+
+enum UserStatus {
+  ACTIVE
+  INACTIVE
+  SUSPENDED
+}
+
+enum AttendanceStatus {
+  PRESENT
+  ABSENT
+  HALF_DAY
+  ON_LEAVE
+}
+
+enum TaskType {
+  NEW_INSTALLATION
+  COMPLAINT_VISIT
+  FIBER_REPAIR
+  ROUTER_REPLACEMENT
+  CABLE_MAINTENANCE
+  SITE_SURVEY
+}
+
+enum TaskStatus {
+  PENDING
+  ASSIGNED
+  IN_PROGRESS
+  RESOLVED
+  COMPLETED
+  CANCELLED
+}
+
+enum Priority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
+enum ComplaintCategory {
+  NO_INTERNET
+  SLOW_SPEED
+  ROUTER_ISSUE
+  FIBER_CUT
+  BILLING_ISSUE
+  SIGNAL_PROBLEM
+}
+
+enum ComplaintStatus {
+  OPEN
+  ASSIGNED
+  IN_PROGRESS
+  RESOLVED
+  CLOSED
+}
+
+enum ImageType {
+  BEFORE_POLE
+  BEFORE_FIBER
+  BEFORE_SITE
+  AFTER_ROUTER
+  AFTER_SPEEDTEST
+  AFTER_SITE
+  OTHER
+}
+
+enum MaterialCategory {
+  ROUTER
+  ONU
+  FIBER_CABLE
+  RJ45_CONNECTOR
+  POWER_ADAPTER
+  OTHER
+}
+
+enum ExpenseType {
+  FUEL
+  TRAVEL
+  MATERIAL_PURCHASE
+  MISCELLANEOUS
+}
+
+enum ApprovalStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum NotificationType {
+  TASK_ASSIGNED
+  TASK_UPDATED
+  COMPLAINT_ASSIGNED
+  ATTENDANCE_REMINDER
+  EXPENSE_APPROVAL
+  GENERAL
+}
+
+// ─── Core: Users & Roles ─────────────────────────────────────────────────────
+
+model User {
+  id            String     @id @default(cuid())
+  employeeCode  String?    @unique
+  name          String
+  email         String     @unique
+  mobile        String?
+  passwordHash  String
+  role          Role       @default(TECHNICIAN)
+  status        UserStatus @default(ACTIVE)
+  profilePhoto  String?
+  address       String?
+  fcmToken      String?
+
+  // Technician → Team Leader (self relation)
+  teamLeaderId  String?
+  teamLeader    User?      @relation("TeamMembers", fields: [teamLeaderId], references: [id], onDelete: SetNull)
+  teamMembers   User[]     @relation("TeamMembers")
+
+  technicianProfile TechnicianProfile?
+
+  // Reverse relations
+  attendances        Attendance[]
+  assignedTasks      Task[]               @relation("TaskAssignee")
+  createdTasks       Task[]               @relation("TaskCreator")
+  assignedComplaints Complaint[]          @relation("ComplaintAssignee")
+  createdComplaints  Complaint[]          @relation("ComplaintCreator")
+  gpsLogs            GpsLog[]
+  materialAssignments MaterialAssignment[] @relation("MaterialTechnician")
+  materialsAssignedBy MaterialAssignment[] @relation("MaterialAssigner")
+  expenses           Expense[]            @relation("ExpenseOwner")
+  expensesReviewed   Expense[]            @relation("ExpenseReviewer")
+  feedbacks          Feedback[]
+  uploadedImages     TaskImage[]
+  notifications      Notification[]
+  activityLogs       ActivityLog[]
+  passwordResets     PasswordResetToken[]
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  @@index([role])
+  @@index([status])
+  @@index([teamLeaderId])
+  @@map("users")
+}
+
+model TechnicianProfile {
+  id           String    @id @default(cuid())
+  userId       String    @unique
+  user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  skillSet     String?
+  vehicleNo    String?
+  baseLat      Float?
+  baseLng      Float?
+  joiningDate  DateTime?
+  ratingAvg    Float     @default(0)
+  ratingCount  Int       @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("technician_profiles")
+}
+
+model PasswordResetToken {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash String   @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@map("password_reset_tokens")
+}
+
+// ─── Attendance ──────────────────────────────────────────────────────────────
+
+model Attendance {
+  id            String           @id @default(cuid())
+  userId        String
+  user          User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  date          DateTime         @db.Date
+  checkInAt     DateTime?
+  checkInLat    Float?
+  checkInLng    Float?
+  checkInSelfie String?
+  checkOutAt    DateTime?
+  checkOutLat   Float?
+  checkOutLng   Float?
+  checkOutSelfie String?
+  workedMinutes Int              @default(0)
+  lateMinutes   Int              @default(0)
+  status        AttendanceStatus @default(PRESENT)
+  note          String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId, date])
+  @@index([date])
+  @@index([status])
+  @@map("attendance")
+}
+
+// ─── Tasks ───────────────────────────────────────────────────────────────────
+
+model Task {
+  id             String     @id @default(cuid())
+  code           String     @unique
+  customerName   String
+  customerMobile String
+  address        String
+  lat            Float?
+  lng            Float?
+  type           TaskType
+  description    String?
+  priority       Priority   @default(MEDIUM)
+  status         TaskStatus @default(PENDING)
+
+  assignedToId String?
+  assignedTo   User?   @relation("TaskAssignee", fields: [assignedToId], references: [id], onDelete: SetNull)
+  createdById  String?
+  createdBy    User?   @relation("TaskCreator", fields: [createdById], references: [id], onDelete: SetNull)
+
+  complaintId String?     @unique
+  complaint   Complaint?  @relation(fields: [complaintId], references: [id], onDelete: SetNull)
+
+  assignedDate DateTime?
+  scheduledAt  DateTime?
+  startedAt    DateTime?
+  completedAt  DateTime?
+
+  images     TaskImage[]
+  signature  CustomerSignature?
+  feedback   Feedback?
+  expenses   Expense[]
+  materials  MaterialAssignment[]
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  @@index([status])
+  @@index([type])
+  @@index([assignedToId])
+  @@index([priority])
+  @@map("tasks")
+}
+
+model TaskImage {
+  id           String    @id @default(cuid())
+  taskId       String
+  task         Task      @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  type         ImageType
+  url          String
+  caption      String?
+  uploadedById String?
+  uploadedBy   User?     @relation(fields: [uploadedById], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+
+  @@index([taskId])
+  @@index([type])
+  @@map("task_images")
+}
+
+// ─── Complaints ──────────────────────────────────────────────────────────────
+
+model Complaint {
+  id             String            @id @default(cuid())
+  code           String            @unique
+  customerName   String
+  customerMobile String
+  address        String
+  category       ComplaintCategory
+  description    String?
+  status         ComplaintStatus   @default(OPEN)
+
+  assignedToId String?
+  assignedTo   User?   @relation("ComplaintAssignee", fields: [assignedToId], references: [id], onDelete: SetNull)
+  createdById  String?
+  createdBy    User?   @relation("ComplaintCreator", fields: [createdById], references: [id], onDelete: SetNull)
+
+  // Repeat-complaint tracking (self relation)
+  parentComplaintId String?
+  parentComplaint   Complaint?  @relation("RepeatComplaints", fields: [parentComplaintId], references: [id], onDelete: SetNull)
+  repeats           Complaint[] @relation("RepeatComplaints")
+  isRepeat          Boolean     @default(false)
+
+  openedAt          DateTime  @default(now())
+  resolvedAt        DateTime?
+  closedAt          DateTime?
+  resolutionMinutes Int?
+
+  task     Task?
+  feedback Feedback?
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  @@index([status])
+  @@index([category])
+  @@index([assignedToId])
+  @@map("complaints")
+}
+
+// ─── GPS Tracking ────────────────────────────────────────────────────────────
+
+model GpsLog {
+  id         String   @id @default(cuid())
+  userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  lat        Float
+  lng        Float
+  accuracy   Float?
+  speed      Float?
+  recordedAt DateTime @default(now())
+
+  @@index([userId, recordedAt])
+  @@map("gps_logs")
+}
+
+// ─── Materials & Inventory ───────────────────────────────────────────────────
+
+model Material {
+  id           String           @id @default(cuid())
+  name         String
+  sku          String?          @unique
+  category     MaterialCategory
+  unit         String           @default("pcs")
+  totalStock   Int              @default(0)
+  reorderLevel Int              @default(0)
+
+  assignments MaterialAssignment[]
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  @@index([category])
+  @@map("materials")
+}
+
+model MaterialAssignment {
+  id           String   @id @default(cuid())
+  materialId   String
+  material     Material @relation(fields: [materialId], references: [id], onDelete: Cascade)
+  technicianId String
+  technician   User     @relation("MaterialTechnician", fields: [technicianId], references: [id], onDelete: Cascade)
+  assignedById String?
+  assignedBy   User?    @relation("MaterialAssigner", fields: [assignedById], references: [id], onDelete: SetNull)
+  taskId       String?
+  task         Task?    @relation(fields: [taskId], references: [id], onDelete: SetNull)
+
+  assignedQty Int @default(0)
+  usedQty     Int @default(0)
+  // balanceQty is derived (assignedQty - usedQty) in application code.
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([materialId])
+  @@index([technicianId])
+  @@map("material_assignments")
+}
+
+// ─── Expenses ────────────────────────────────────────────────────────────────
+
+model Expense {
+  id            String         @id @default(cuid())
+  userId        String
+  user          User           @relation("ExpenseOwner", fields: [userId], references: [id], onDelete: Cascade)
+  type          ExpenseType
+  amount        Decimal        @db.Decimal(10, 2)
+  description   String?
+  receiptUrl    String?
+  expenseDate   DateTime       @db.Date
+  status        ApprovalStatus @default(PENDING)
+  taskId        String?
+  task          Task?          @relation(fields: [taskId], references: [id], onDelete: SetNull)
+
+  reviewedById  String?
+  reviewedBy    User?     @relation("ExpenseReviewer", fields: [reviewedById], references: [id], onDelete: SetNull)
+  reviewComment String?
+  reviewedAt    DateTime?
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  @@index([userId])
+  @@index([status])
+  @@index([type])
+  @@map("expenses")
+}
+
+// ─── Customer Feedback ───────────────────────────────────────────────────────
+
+model Feedback {
+  id           String     @id @default(cuid())
+  taskId       String?    @unique
+  task         Task?      @relation(fields: [taskId], references: [id], onDelete: SetNull)
+  complaintId  String?    @unique
+  complaint    Complaint? @relation(fields: [complaintId], references: [id], onDelete: SetNull)
+  technicianId String
+  technician   User       @relation(fields: [technicianId], references: [id], onDelete: Cascade)
+  customerName String
+  rating       Int        // 1..5
+  comment      String?
+
+  createdAt DateTime @default(now())
+
+  @@index([technicianId])
+  @@index([rating])
+  @@map("feedback")
+}
+
+// ─── Customer Signatures ─────────────────────────────────────────────────────
+
+model CustomerSignature {
+  id           String   @id @default(cuid())
+  taskId       String   @unique
+  task         Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  customerName String
+  signatureUrl String
+  signedAt     DateTime @default(now())
+
+  createdAt DateTime @default(now())
+
+  @@map("customer_signatures")
+}
+
+// ─── Notifications ───────────────────────────────────────────────────────────
+
+model Notification {
+  id     String           @id @default(cuid())
+  userId String
+  user   User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type   NotificationType @default(GENERAL)
+  title  String
+  body   String?
+  data   Json?
+  readAt DateTime?
+
+  createdAt DateTime @default(now())
+
+  @@index([userId, readAt])
+  @@map("notifications")
+}
+
+// ─── Audit / Activity Logs ───────────────────────────────────────────────────
+
+model ActivityLog {
+  id         String   @id @default(cuid())
+  userId     String?
+  user       User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  action     String
+  entityType String?
+  entityId   String?
+  meta       Json?
+  ip         String?
+  userAgent  String?
+
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([entityType, entityId])
+  @@map("activity_logs")
+}
