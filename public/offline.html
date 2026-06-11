@@ -1,0 +1,21 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Offline — ISP TMS</title>
+  <style>
+    body { font-family: system-ui, sans-serif; background: #020617; color: #e2e8f0; display: grid; place-items: center; height: 100vh; margin: 0; text-align: center; padding: 1rem; }
+    .icon { width: 72px; height: 72px; border-radius: 16px; background: #2563eb; display: grid; place-items: center; margin: 0 auto 1rem; color: #fff; font-size: 2rem; }
+    button { margin-top: 1.5rem; background: #2563eb; color: #fff; border: 0; border-radius: 10px; padding: 0.6rem 1.2rem; font-size: 0.95rem; cursor: pointer; }
+  </style>
+</head>
+<body>
+  <div>
+    <div class="icon">📶</div>
+    <h1>You're offline</h1>
+    <p>Some features need a connection. Cached pages remain available.</p>
+    <button onclick="location.reload()">Retry</button>
+  </div>
+</body>
+</html>
