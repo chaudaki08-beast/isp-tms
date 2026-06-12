@@ -3,6 +3,11 @@ import { handle, ok } from '@/lib/api';
 import { requireUser } from '@/lib/rbac';
 import { prisma } from '@/lib/prisma';
 
+/** Turn a Prisma groupBy result into a { STATUS: count } map. */
+function statusMap(groups: { status: string; _count: number }[]): Record<string, number> {
+  return Object.fromEntries(groups.map((g) => [g.status, g._count]));
+}
+
 export const GET = handle(async () => {
   const me = await requireUser();
 
@@ -23,36 +28,27 @@ export const GET = handle(async () => {
 
   const monthStart = new Date(today.getFullYear(), today.getMonth(), 1);
 
+  // Run in two bounded batches rather than one big fan-out, so the dashboard
+  // never needs more than ~7 DB connections at once (resilient to a low
+  // connection_limit). pendingJobs / pendingComplaints are derived from the
+  // status groups below instead of separate count queries.
   const [
     todaysInstallations,
     todaysComplaints,
     completedJobs,
-    pendingJobs,
     activeTechnicians,
     presentToday,
     taskStatusGroups,
     complaintStatusGroups,
-    recentActivities,
-    technicianStatuses,
-    totalCustomers,
-    activeCustomers,
-    pendingComplaints,
-    activeOutages,
-    monthPayments,
-    monthInvoices,
-    outstandingAgg,
   ] = await Promise.all([
     prisma.task.count({
-      where: { ...assigneeScope, type: TaskType.NEW_INSTALLATION, createdAt: { gte: today, lt: tomorrow } },
+      where: { ...assigneeScope, deletedAt: null, type: TaskType.NEW_INSTALLATION, createdAt: { gte: today, lt: tomorrow } },
     }),
     prisma.complaint.count({
-      where: { openedAt: { gte: today, lt: tomorrow } },
+      where: { deletedAt: null, openedAt: { gte: today, lt: tomorrow } },
     }),
     prisma.task.count({
       where: { ...assigneeScope, status: TaskStatus.COMPLETED, completedAt: { gte: today, lt: tomorrow } },
-    }),
-    prisma.task.count({
-      where: { ...assigneeScope, status: { in: [TaskStatus.PENDING, TaskStatus.ASSIGNED] } },
     }),
     prisma.user.count({
       where: { role: Role.TECHNICIAN, status: 'ACTIVE', deletedAt: null, ...techScope },
@@ -60,8 +56,20 @@ export const GET = handle(async () => {
     prisma.attendance.count({
       where: { date: today, status: 'PRESENT', user: { role: Role.TECHNICIAN, ...techScope } },
     }),
-    prisma.task.groupBy({ by: ['status'], _count: true, where: assigneeScope }),
-    prisma.complaint.groupBy({ by: ['status'], _count: true }),
+    prisma.task.groupBy({ by: ['status'], _count: true, where: { ...assigneeScope, deletedAt: null } }),
+    prisma.complaint.groupBy({ by: ['status'], _count: true, where: { deletedAt: null } }),
+  ]);
+
+  const [
+    recentActivities,
+    technicianStatuses,
+    totalCustomers,
+    activeCustomers,
+    activeOutages,
+    monthPayments,
+    monthInvoices,
+    outstandingAgg,
+  ] = await Promise.all([
     prisma.activityLog.findMany({
       take: 10,
       orderBy: { createdAt: 'desc' },
@@ -80,12 +88,18 @@ export const GET = handle(async () => {
     }),
     prisma.customer.count({ where: { deletedAt: null } }),
     prisma.customer.count({ where: { deletedAt: null, status: 'ACTIVE' } }),
-    prisma.complaint.count({ where: { deletedAt: null, status: { in: [ComplaintStatus.OPEN, ComplaintStatus.ASSIGNED, ComplaintStatus.IN_PROGRESS] } } }),
     prisma.outage.count({ where: { status: 'ACTIVE' } }),
     prisma.payment.aggregate({ where: { paidAt: { gte: monthStart } }, _sum: { amount: true } }),
     prisma.invoice.aggregate({ where: { deletedAt: null, issueDate: { gte: monthStart } }, _sum: { total: true } }),
     prisma.invoice.aggregate({ where: { deletedAt: null, status: { in: ['PENDING', 'PARTIAL', 'OVERDUE'] } }, _sum: { total: true, amountPaid: true } }),
   ]);
+
+  // Derived counts (no extra queries).
+  const taskStatus = statusMap(taskStatusGroups as never);
+  const complaintStatus = statusMap(complaintStatusGroups as never);
+  const pendingJobs = (taskStatus.PENDING ?? 0) + (taskStatus.ASSIGNED ?? 0);
+  const pendingComplaints =
+    (complaintStatus.OPEN ?? 0) + (complaintStatus.ASSIGNED ?? 0) + (complaintStatus.IN_PROGRESS ?? 0);
 
   const monthRevenue = Number(monthPayments._sum.amount ?? 0);
   const monthBilled = Number(monthInvoices._sum.total ?? 0);
@@ -93,9 +107,6 @@ export const GET = handle(async () => {
   const outstanding = Number(outstandingAgg._sum.total ?? 0) - Number(outstandingAgg._sum.amountPaid ?? 0);
 
   const absentToday = Math.max(0, activeTechnicians - presentToday);
-
-  const statusMap = (groups: { status: string; _count: number }[]) =>
-    Object.fromEntries(groups.map((g) => [g.status, g._count]));
 
   return ok({
     cards: {
@@ -118,8 +129,8 @@ export const GET = handle(async () => {
       collectionRate,
       outstanding,
     },
-    taskStatus: statusMap(taskStatusGroups as never),
-    complaintStatus: statusMap(complaintStatusGroups as never),
+    taskStatus,
+    complaintStatus,
     attendanceSummary: {
       present: presentToday,
       absent: absentToday,
