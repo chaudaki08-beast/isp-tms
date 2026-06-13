@@ -2,14 +2,14 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import { useSession } from 'next-auth/react';
-import { Plus } from 'lucide-react';
-import { apiGet, apiPost, apiPut } from '@/lib/client';
+import { Plus, Trash2 } from 'lucide-react';
+import { apiGet, apiPost, apiPut, apiDelete } from '@/lib/client';
 import { Card, Spinner, EmptyState, Modal, Field, StatusBadge } from '@/components/ui';
 import { COMPLAINT_CATEGORIES, COMPLAINT_STATUSES, humanize } from '@/lib/labels';
 
 type Complaint = {
   id: string; code: string; customerName: string; customerMobile: string; address: string;
-  category: string; status: string; isRepeat: boolean; assignedTo?: { name: string } | null;
+  category: string; status: string; isRepeat: boolean; assignedTo?: { id: string; name: string } | null;
 };
 type Tech = { id: string; name: string };
 
@@ -18,6 +18,7 @@ export default function ComplaintsPage() {
   const isManager = session?.user?.role !== 'TECHNICIAN';
 
   const [items, setItems] = useState<Complaint[]>([]);
+  const [techs, setTechs] = useState<Tech[]>([]);
   const [loading, setLoading] = useState(true);
   const [status, setStatus] = useState('');
   const [showCreate, setShowCreate] = useState(false);
@@ -32,9 +33,19 @@ export default function ComplaintsPage() {
   }, [status]);
 
   useEffect(() => { load(); }, [load]);
+  useEffect(() => { if (isManager) apiGet<Tech[]>('/api/technicians').then(setTechs).catch(() => {}); }, [isManager]);
 
   async function updateStatus(id: string, newStatus: string) {
     await apiPut(`/api/complaints/${id}`, { status: newStatus });
+    load();
+  }
+  async function reassign(id: string, technicianId: string) {
+    await apiPut(`/api/complaints/${id}`, { assignedToId: technicianId || null });
+    load();
+  }
+  async function remove(id: string, code: string) {
+    if (!confirm(`Delete ticket ${code}?`)) return;
+    await apiDelete(`/api/complaints/${id}`);
     load();
   }
 
@@ -66,11 +77,20 @@ export default function ComplaintsPage() {
                 <p className="text-sm">{c.customerName} · {humanize(c.category)}</p>
                 <p className="text-xs text-slate-400">{c.address}</p>
               </div>
-              <div className="flex items-center gap-2">
+              <div className="flex flex-wrap items-center gap-2">
                 <StatusBadge status={c.status} />
-                <select className="input w-36 py-1.5 text-xs" value={c.status} onChange={(e) => updateStatus(c.id, e.target.value)}>
+                <select className="input w-32 py-1.5 text-xs" value={c.status} onChange={(e) => updateStatus(c.id, e.target.value)}>
                   {COMPLAINT_STATUSES.map((s) => <option key={s} value={s}>{humanize(s)}</option>)}
                 </select>
+                {isManager && (
+                  <>
+                    <select className="input w-36 py-1.5 text-xs" value={c.assignedTo?.id ?? ''} onChange={(e) => reassign(c.id, e.target.value)}>
+                      <option value="">Unassigned</option>
+                      {techs.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
+                    </select>
+                    <button onClick={() => remove(c.id, c.code)} className="rounded p-1.5 text-slate-400 hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-900/30" title="Delete ticket"><Trash2 className="h-4 w-4" /></button>
+                  </>
+                )}
               </div>
             </Card>
           ))}

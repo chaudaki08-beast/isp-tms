@@ -2,8 +2,8 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import { useSession } from 'next-auth/react';
-import { Plus, PackagePlus } from 'lucide-react';
-import { apiGet, apiPost, apiPatch } from '@/lib/client';
+import { Plus, PackagePlus, Pencil, Trash2 } from 'lucide-react';
+import { apiGet, apiPost, apiPatch, apiPut, apiDelete } from '@/lib/client';
 import { Card, Spinner, EmptyState, Modal, Field } from '@/components/ui';
 import { MATERIAL_CATEGORIES, humanize } from '@/lib/labels';
 
@@ -19,7 +19,14 @@ export default function MaterialsPage() {
   const [assignments, setAssignments] = useState<Assignment[]>([]);
   const [loading, setLoading] = useState(true);
   const [showCreate, setShowCreate] = useState(false);
+  const [editMaterial, setEditMaterial] = useState<Material | null>(null);
   const [assignFor, setAssignFor] = useState<Material | null>(null);
+
+  async function removeMaterial(m: Material) {
+    if (!confirm(`Delete material "${m.name}"?`)) return;
+    await apiDelete(`/api/materials/${m.id}`);
+    setMaterials((prev) => prev.filter((x) => x.id !== m.id));
+  }
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -63,7 +70,13 @@ export default function MaterialsPage() {
                     <td className="td">{humanize(m.category)}</td>
                     <td className="td">{m.totalStock} {m.unit}</td>
                     <td className="td">{m.reorderLevel}</td>
-                    <td className="td text-right"><button onClick={() => setAssignFor(m)} className="btn-ghost py-1 text-xs"><PackagePlus className="h-4 w-4" /> Assign</button></td>
+                    <td className="td">
+                      <div className="flex items-center justify-end gap-1">
+                        <button onClick={() => setAssignFor(m)} className="btn-ghost py-1 text-xs"><PackagePlus className="h-4 w-4" /> Assign</button>
+                        <button onClick={() => setEditMaterial(m)} className="rounded p-1.5 text-slate-400 hover:bg-slate-100 hover:text-brand-600 dark:hover:bg-slate-800" title="Edit"><Pencil className="h-4 w-4" /></button>
+                        <button onClick={() => removeMaterial(m)} className="rounded p-1.5 text-slate-400 hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-900/30" title="Delete"><Trash2 className="h-4 w-4" /></button>
+                      </div>
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -102,26 +115,34 @@ export default function MaterialsPage() {
         )}
       </Card>
 
-      {showCreate && <CreateMaterialModal onClose={() => setShowCreate(false)} onDone={load} />}
+      {showCreate && <MaterialModal onClose={() => setShowCreate(false)} onDone={load} />}
+      {editMaterial && <MaterialModal material={editMaterial} onClose={() => setEditMaterial(null)} onDone={load} />}
       {assignFor && <AssignModal material={assignFor} onClose={() => setAssignFor(null)} onDone={load} />}
     </div>
   );
 }
 
-function CreateMaterialModal({ onClose, onDone }: { onClose: () => void; onDone: () => void }) {
-  const [form, setForm] = useState({ name: '', sku: '', category: 'ROUTER', unit: 'pcs', totalStock: 0, reorderLevel: 0 });
+function MaterialModal({ material, onClose, onDone }: { material?: Material; onClose: () => void; onDone: () => void }) {
+  const [form, setForm] = useState({
+    name: material?.name ?? '', sku: material?.sku ?? '', category: material?.category ?? 'ROUTER',
+    unit: material?.unit ?? 'pcs', totalStock: material?.totalStock ?? 0, reorderLevel: material?.reorderLevel ?? 0,
+  });
   const [saving, setSaving] = useState(false);
   const set = (k: string) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => setForm({ ...form, [k]: e.target.value });
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     setSaving(true);
-    try { await apiPost('/api/materials', { ...form, totalStock: Number(form.totalStock), reorderLevel: Number(form.reorderLevel) }); onDone(); onClose(); }
-    finally { setSaving(false); }
+    const payload = { ...form, totalStock: Number(form.totalStock), reorderLevel: Number(form.reorderLevel) };
+    try {
+      if (material) await apiPut(`/api/materials/${material.id}`, payload);
+      else await apiPost('/api/materials', payload);
+      onDone(); onClose();
+    } finally { setSaving(false); }
   }
 
   return (
-    <Modal open onClose={onClose} title="Add Material">
+    <Modal open onClose={onClose} title={material ? 'Edit Material' : 'Add Material'}>
       <form onSubmit={submit} className="grid gap-3 sm:grid-cols-2">
         <Field label="Name"><input className="input" value={form.name} onChange={set('name')} required /></Field>
         <Field label="SKU"><input className="input" value={form.sku} onChange={set('sku')} /></Field>

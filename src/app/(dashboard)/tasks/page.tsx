@@ -3,8 +3,8 @@
 import { useEffect, useState, useCallback } from 'react';
 import Link from 'next/link';
 import { useSession } from 'next-auth/react';
-import { Plus, Search } from 'lucide-react';
-import { apiGet, apiPost } from '@/lib/client';
+import { Plus, Search, Pencil, Trash2 } from 'lucide-react';
+import { apiGet, apiPost, apiPut, apiDelete } from '@/lib/client';
 import { Card, Spinner, EmptyState, Modal, Field, StatusBadge, PriorityBadge } from '@/components/ui';
 import { TASK_TYPES, TASK_STATUSES, PRIORITIES, humanize } from '@/lib/labels';
 
@@ -24,6 +24,13 @@ export default function TasksPage() {
   const [search, setSearch] = useState('');
   const [status, setStatus] = useState('');
   const [showCreate, setShowCreate] = useState(false);
+  const [editId, setEditId] = useState<string | null>(null);
+
+  async function remove(id: string, code: string) {
+    if (!confirm(`Cancel & remove task ${code}?`)) return;
+    await apiDelete(`/api/tasks/${id}`);
+    setItems((prev) => prev.filter((t) => t.id !== id));
+  }
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -73,6 +80,7 @@ export default function TasksPage() {
               <tr>
                 <th className="th">Code</th><th className="th">Customer</th><th className="th">Type</th>
                 <th className="th">Priority</th><th className="th">Assigned</th><th className="th">Status</th>
+                {isManager && <th className="th"></th>}
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
@@ -84,6 +92,14 @@ export default function TasksPage() {
                   <td className="td"><PriorityBadge priority={t.priority} /></td>
                   <td className="td">{t.assignedTo?.name ?? <span className="text-slate-400">Unassigned</span>}</td>
                   <td className="td"><StatusBadge status={t.status} /></td>
+                  {isManager && (
+                    <td className="td">
+                      <div className="flex gap-1">
+                        <button onClick={() => setEditId(t.id)} className="rounded p-1.5 text-slate-400 hover:bg-slate-100 hover:text-brand-600 dark:hover:bg-slate-800" title="Edit"><Pencil className="h-4 w-4" /></button>
+                        <button onClick={() => remove(t.id, t.code)} className="rounded p-1.5 text-slate-400 hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-900/30" title="Delete"><Trash2 className="h-4 w-4" /></button>
+                      </div>
+                    </td>
+                  )}
                 </tr>
               ))}
             </tbody>
@@ -91,26 +107,35 @@ export default function TasksPage() {
         </div>
       )}
 
-      {showCreate && <CreateTaskModal onClose={() => setShowCreate(false)} onCreated={load} />}
+      {showCreate && <TaskModal onClose={() => setShowCreate(false)} onSaved={load} />}
+      {editId && <TaskModal taskId={editId} onClose={() => setEditId(null)} onSaved={load} />}
     </div>
   );
 }
 
-function CreateTaskModal({ onClose, onCreated }: { onClose: () => void; onCreated: () => void }) {
+function TaskModal({ taskId, onClose, onSaved }: { taskId?: string; onClose: () => void; onSaved: () => void }) {
   const [techs, setTechs] = useState<Tech[]>([]);
   const [form, setForm] = useState({ customerName: '', customerMobile: '', address: '', type: 'NEW_INSTALLATION', priority: 'MEDIUM', description: '', assignedToId: '' });
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
 
   useEffect(() => { apiGet<Tech[]>('/api/technicians').then(setTechs).catch(() => {}); }, []);
+  useEffect(() => {
+    if (!taskId) return;
+    apiGet<{ customerName: string; customerMobile: string; address: string; type: string; priority: string; description?: string | null; assignedToId?: string | null }>(`/api/tasks/${taskId}`)
+      .then((t) => setForm({ customerName: t.customerName, customerMobile: t.customerMobile, address: t.address, type: t.type, priority: t.priority, description: t.description ?? '', assignedToId: t.assignedToId ?? '' }))
+      .catch(() => {});
+  }, [taskId]);
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     setSaving(true);
     setError('');
     try {
-      await apiPost('/api/tasks', { ...form, assignedToId: form.assignedToId || null });
-      onCreated();
+      const payload = { ...form, assignedToId: form.assignedToId || null };
+      if (taskId) await apiPut(`/api/tasks/${taskId}`, payload);
+      else await apiPost('/api/tasks', payload);
+      onSaved();
       onClose();
     } catch (err) {
       setError((err as Error).message);
@@ -122,7 +147,7 @@ function CreateTaskModal({ onClose, onCreated }: { onClose: () => void; onCreate
   const set = (k: string) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => setForm({ ...form, [k]: e.target.value });
 
   return (
-    <Modal open onClose={onClose} title="Create Task" wide>
+    <Modal open onClose={onClose} title={taskId ? 'Edit Task' : 'Create Task'} wide>
       <form onSubmit={submit} className="grid gap-4 sm:grid-cols-2">
         {error && <p className="sm:col-span-2 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
         <Field label="Customer Name"><input className="input" value={form.customerName} onChange={set('customerName')} required /></Field>
@@ -134,7 +159,7 @@ function CreateTaskModal({ onClose, onCreated }: { onClose: () => void; onCreate
         <div className="sm:col-span-2"><Field label="Description"><textarea className="input" rows={3} value={form.description} onChange={set('description')} /></Field></div>
         <div className="sm:col-span-2 flex justify-end gap-2">
           <button type="button" onClick={onClose} className="btn-ghost">Cancel</button>
-          <button className="btn-primary" disabled={saving}>{saving ? 'Saving…' : 'Create Task'}</button>
+          <button className="btn-primary" disabled={saving}>{saving ? 'Saving…' : taskId ? 'Save Changes' : 'Create Task'}</button>
         </div>
       </form>
     </Modal>
