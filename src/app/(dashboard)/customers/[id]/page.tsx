@@ -2,11 +2,12 @@
 
 import { useEffect, useState, useCallback, use } from 'react';
 import Link from 'next/link';
-import { Phone, MapPin, Plus, FileText, IndianRupee, RefreshCw, StickyNote } from 'lucide-react';
-import { apiGet, apiPost } from '@/lib/client';
+import { useRouter } from 'next/navigation';
+import { Phone, MapPin, FileText, IndianRupee, RefreshCw, StickyNote, Pencil, Trash2 } from 'lucide-react';
+import { apiGet, apiPost, apiPut, apiDelete } from '@/lib/client';
 import { Card, Spinner, StatusBadge, Modal, Field } from '@/components/ui';
 import { formatCurrency } from '@/lib/utils';
-import { humanize, PAYMENT_METHODS } from '@/lib/labels';
+import { humanize, PAYMENT_METHODS, CONNECTION_TYPES, CUSTOMER_STATUSES } from '@/lib/labels';
 import { formatDistanceToNow } from 'date-fns';
 
 type Customer = {
@@ -23,15 +24,22 @@ type Customer = {
 
 export default function CustomerDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
+  const router = useRouter();
   const [c, setC] = useState<Customer | null>(null);
   const [error, setError] = useState('');
-  const [modal, setModal] = useState<null | 'note' | 'invoice' | 'payment' | 'plan'>(null);
+  const [modal, setModal] = useState<null | 'note' | 'invoice' | 'payment' | 'plan' | 'edit'>(null);
 
   const load = useCallback(async () => {
     try { setC(await apiGet<Customer>(`/api/customers/${id}`)); }
     catch (e) { setError((e as Error).message); }
   }, [id]);
   useEffect(() => { load(); }, [load]);
+
+  async function remove() {
+    if (!confirm('Deactivate this customer? They will be hidden from active lists.')) return;
+    await apiDelete(`/api/customers/${id}`);
+    router.push('/customers');
+  }
 
   if (error) return <Card>{error}</Card>;
   if (!c) return <div className="flex justify-center py-20"><Spinner className="h-8 w-8" /></div>;
@@ -45,7 +53,11 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
           <h1 className="text-2xl font-bold">{c.name}</h1>
           <p className="text-sm text-slate-500">{c.code} · {humanize(c.connectionType)}</p>
         </div>
-        <StatusBadge status={c.status} />
+        <div className="flex items-center gap-2">
+          <StatusBadge status={c.status} />
+          <button onClick={() => setModal('edit')} className="btn-ghost" title="Edit customer"><Pencil className="h-4 w-4" /> Edit</button>
+          <button onClick={remove} className="rounded-lg p-2 text-slate-400 hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-900/30" title="Deactivate customer"><Trash2 className="h-4 w-4" /></button>
+        </div>
       </div>
 
       {/* Quick actions */}
@@ -155,6 +167,7 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
       {modal === 'invoice' && <InvoiceModal id={id} onClose={() => setModal(null)} onDone={load} />}
       {modal === 'payment' && <PaymentModal id={id} invoices={c.invoices} onClose={() => setModal(null)} onDone={load} />}
       {modal === 'plan' && <PlanModal id={id} onClose={() => setModal(null)} onDone={load} />}
+      {modal === 'edit' && <EditCustomerModal id={id} customer={c} onClose={() => setModal(null)} onDone={load} />}
     </div>
   );
 }
@@ -166,6 +179,41 @@ function MiniList({ children, empty }: { children: React.ReactNode; empty: strin
   const arr = Array.isArray(children) ? children : [children];
   if (arr.flat().filter(Boolean).length === 0) return <p className="text-sm text-slate-400">{empty}</p>;
   return <div className="divide-y divide-slate-100 dark:divide-slate-800">{children}</div>;
+}
+
+function EditCustomerModal({ id, customer, onClose, onDone }: { id: string; customer: Customer; onClose: () => void; onDone: () => void }) {
+  const [form, setForm] = useState({
+    name: customer.name, mobile: customer.mobile, altMobile: customer.altMobile ?? '',
+    email: customer.email ?? '', address: customer.address, area: customer.area ?? '',
+    connectionType: customer.connectionType, status: customer.status,
+  });
+  const [error, setError] = useState('');
+  const [saving, setSaving] = useState(false);
+  const set = (k: string) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => setForm({ ...form, [k]: e.target.value });
+  async function save() {
+    setSaving(true); setError('');
+    try { await apiPut(`/api/customers/${id}`, form); onDone(); onClose(); }
+    catch (e) { setError((e as Error).message); } finally { setSaving(false); }
+  }
+  return (
+    <Modal open onClose={onClose} title="Edit Customer" wide>
+      <div className="grid gap-3 sm:grid-cols-2">
+        {error && <p className="sm:col-span-2 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
+        <Field label="Name"><input className="input" value={form.name} onChange={set('name')} /></Field>
+        <Field label="Mobile"><input className="input" value={form.mobile} onChange={set('mobile')} /></Field>
+        <Field label="Alternate Mobile"><input className="input" value={form.altMobile} onChange={set('altMobile')} /></Field>
+        <Field label="Email"><input type="email" className="input" value={form.email} onChange={set('email')} /></Field>
+        <div className="sm:col-span-2"><Field label="Address"><input className="input" value={form.address} onChange={set('address')} /></Field></div>
+        <Field label="Area / Zone"><input className="input" value={form.area} onChange={set('area')} /></Field>
+        <Field label="Connection Type"><select className="input" value={form.connectionType} onChange={set('connectionType')}>{CONNECTION_TYPES.map((t) => <option key={t} value={t}>{humanize(t)}</option>)}</select></Field>
+        <Field label="Status"><select className="input" value={form.status} onChange={set('status')}>{CUSTOMER_STATUSES.map((s) => <option key={s} value={s}>{humanize(s)}</option>)}</select></Field>
+        <div className="sm:col-span-2 flex justify-end gap-2">
+          <button type="button" onClick={onClose} className="btn-ghost">Cancel</button>
+          <button onClick={save} disabled={saving} className="btn-primary">{saving ? 'Saving…' : 'Save Changes'}</button>
+        </div>
+      </div>
+    </Modal>
+  );
 }
 
 function NoteModal({ id, onClose, onDone }: { id: string; onClose: () => void; onDone: () => void }) {
