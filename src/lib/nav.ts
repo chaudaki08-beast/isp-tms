@@ -39,7 +39,7 @@ export const NAV_ITEMS: NavItem[] = [
   { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard, roles: ALL },
   { href: '/customers', label: 'Customers', icon: Users2, roles: CRM },
   { href: '/tasks', label: 'Field Work', icon: ClipboardList, roles: FIELD },
-  { href: '/complaints', label: 'Tickets', icon: AlertCircle, roles: [...FIELD, 'CALL_CENTER'] },
+  { href: '/complaints', label: 'Complaints', icon: AlertCircle, roles: [...FIELD, 'CALL_CENTER'] },
   { href: '/billing', label: 'Billing', icon: Receipt, roles: BILLING },
   { href: '/plans', label: 'Plans & Packages', icon: Layers, roles: ADMINS },
   { href: '/outages', label: 'Outages', icon: CloudOff, roles: OPS },

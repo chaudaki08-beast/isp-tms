@@ -135,7 +135,7 @@ export default function CustomerDetailPage({ params }: { params: Promise<{ id: s
         </Card>
 
         <Card>
-          <h3 className="mb-3 font-semibold">Tickets</h3>
+          <h3 className="mb-3 font-semibold">Complaints</h3>
           <MiniList empty="No tickets">
             {c.tickets.map((t) => (
               <div key={t.id} className="flex items-center justify-between py-2 text-sm">
