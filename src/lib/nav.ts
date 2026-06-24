@@ -36,21 +36,27 @@ const CRM: Role[] = ['SUPER_ADMIN', 'ADMIN', 'TEAM_LEADER', 'ACCOUNTANT', 'CALL_
 const FIELD: Role[] = ['SUPER_ADMIN', 'ADMIN', 'TEAM_LEADER', 'TECHNICIAN'];
 
 export const NAV_ITEMS: NavItem[] = [
-  { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard, roles: ALL },
-  { href: '/customers', label: 'Customers', icon: Users2, roles: CRM },
-  { href: '/tasks', label: 'Field Work', icon: ClipboardList, roles: FIELD },
+  // Daily essentials first
+  { href: '/attendance', label: 'Attendance', icon: CalendarCheck, roles: ALL },
   { href: '/complaints', label: 'Complaints', icon: AlertCircle, roles: [...FIELD, 'CALL_CENTER'] },
-  { href: '/billing', label: 'Billing', icon: Receipt, roles: BILLING },
+  { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard, roles: ALL },
+  // CRM & sales
+  { href: '/customers', label: 'Customers', icon: Users2, roles: CRM },
   { href: '/plans', label: 'Plans & Packages', icon: Layers, roles: ADMINS },
+  { href: '/billing', label: 'Billing', icon: Receipt, roles: BILLING },
+  // Field operations
+  { href: '/tasks', label: 'Field Work', icon: ClipboardList, roles: FIELD },
+  { href: '/tracking', label: 'Live Map', icon: MapPin, roles: OPS },
+  { href: '/materials', label: 'Materials', icon: Package, roles: FIELD },
+  { href: '/expenses', label: 'Expenses', icon: Wallet, roles: FIELD },
+  // Network & inventory
   { href: '/outages', label: 'Outages', icon: CloudOff, roles: OPS },
   { href: '/assets', label: 'Assets', icon: Boxes, roles: OPS },
-  { href: '/materials', label: 'Materials', icon: Package, roles: FIELD },
-  { href: '/attendance', label: 'Attendance', icon: CalendarCheck, roles: ALL },
-  { href: '/tracking', label: 'Live Map', icon: MapPin, roles: OPS },
-  { href: '/expenses', label: 'Expenses', icon: Wallet, roles: FIELD },
+  // Insights
   { href: '/feedback', label: 'Feedback', icon: Star, roles: ALL },
   { href: '/reports', label: 'Reports', icon: FileBarChart, roles: [...OPS, 'ACCOUNTANT'] },
   { href: '/analytics', label: 'Analytics', icon: LineChart, roles: OPS },
+  // Administration
   { href: '/users', label: 'Users', icon: Users, roles: ADMINS },
   { href: '/audit', label: 'Audit Logs', icon: ScrollText, roles: ['SUPER_ADMIN'] },
   { href: '/profile', label: 'Profile', icon: UserCircle, roles: ALL },
