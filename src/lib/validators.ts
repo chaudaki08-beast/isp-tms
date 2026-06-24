@@ -49,6 +49,13 @@ export const checkInSchema = z.object({
 
 export const checkOutSchema = checkInSchema;
 
+export const markAttendanceSchema = z.object({
+  userId: z.string(),
+  date: z.string(), // yyyy-mm-dd
+  status: z.enum(['PRESENT', 'HALF_DAY', 'ON_LEAVE', 'ABSENT']),
+  note: z.string().optional(),
+});
+
 // ── Tasks ─────────────────────────────────────────────────────────────────
 export const taskTypeEnum = z.enum([
   'NEW_INSTALLATION',
