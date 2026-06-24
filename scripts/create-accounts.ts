@@ -11,6 +11,7 @@ const accounts: { name: string; email: string; role: Role }[] = [
   { name: 'Priti', email: 'priti@isp.com', role: Role.ADMIN },
   { name: 'Nikita', email: 'nikita@isp.com', role: Role.ADMIN },
   { name: 'Haji', email: 'haji@isp.com', role: Role.TECHNICIAN },
+  { name: 'SBCable', email: 'sbcable@isp.com', role: Role.SUPER_ADMIN },
 ];
 
 // Per-user default password: lowercase first name + "@246" (e.g. priti@246).
