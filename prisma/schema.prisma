@@ -204,6 +204,7 @@ model User {
   profilePhoto  String?
   address       String?
   fcmToken      String?
+  weekOff       Int?       // weekly off day: 0=Sunday .. 6=Saturday (6-day work week)
 
   // Technician → Team Leader (self relation)
   teamLeaderId  String?
