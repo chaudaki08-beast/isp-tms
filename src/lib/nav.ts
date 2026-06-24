@@ -36,10 +36,10 @@ const CRM: Role[] = ['SUPER_ADMIN', 'ADMIN', 'TEAM_LEADER', 'ACCOUNTANT', 'CALL_
 const FIELD: Role[] = ['SUPER_ADMIN', 'ADMIN', 'TEAM_LEADER', 'TECHNICIAN'];
 
 export const NAV_ITEMS: NavItem[] = [
-  // Daily essentials first
+  // Overview + daily essentials first
+  { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard, roles: ALL },
   { href: '/attendance', label: 'Attendance', icon: CalendarCheck, roles: ALL },
   { href: '/complaints', label: 'Complaints', icon: AlertCircle, roles: [...FIELD, 'CALL_CENTER'] },
-  { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard, roles: ALL },
   // CRM & sales
   { href: '/customers', label: 'Customers', icon: Users2, roles: CRM },
   { href: '/plans', label: 'Plans & Packages', icon: Layers, roles: ADMINS },
