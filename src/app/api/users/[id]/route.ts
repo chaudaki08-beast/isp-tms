@@ -35,6 +35,7 @@ export const PUT = handle(async (req: Request, { params }: Ctx) => {
     employeeCode: body.employeeCode,
     address: body.address,
     teamLeaderId: body.teamLeaderId === undefined ? undefined : body.teamLeaderId || null,
+    weekOff: body.weekOff === undefined ? undefined : body.weekOff,
   };
   if (body.email) data.email = body.email.toLowerCase();
   if (body.password) data.passwordHash = await bcrypt.hash(body.password, 10);

@@ -29,10 +29,11 @@ export const createUserSchema = z.object({
   email: z.string().email(),
   mobile: z.string().min(6).max(20).optional(),
   password: z.string().min(8),
-  role: z.enum(['SUPER_ADMIN', 'TEAM_LEADER', 'TECHNICIAN']),
+  role: z.enum(['SUPER_ADMIN', 'ADMIN', 'TEAM_LEADER', 'ACCOUNTANT', 'CALL_CENTER', 'TECHNICIAN']),
   employeeCode: z.string().optional(),
   teamLeaderId: z.string().optional().nullable(),
   address: z.string().optional(),
+  weekOff: z.number().int().min(0).max(6).optional().nullable(), // 0=Sun..6=Sat
 });
 
 export const updateUserSchema = createUserSchema.partial().extend({

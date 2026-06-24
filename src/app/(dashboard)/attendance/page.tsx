@@ -7,10 +7,12 @@ import { apiGet, apiPost } from '@/lib/client';
 import { getCurrentPosition } from '@/lib/geo';
 import { Card, StatCard, Spinner, StatusBadge, Modal, EmptyState, Field } from '@/components/ui';
 import { CameraCapture } from '@/components/CameraCapture';
+import { WEEKDAYS, WEEKDAYS_SHORT } from '@/lib/labels';
 
 type Today = { checkedIn: boolean; checkedOut: boolean; record: { checkInAt?: string; checkOutAt?: string; lateMinutes: number; workedMinutes: number } | null };
 type Row = { id: string; date: string; status: string; checkInAt?: string | null; checkOutAt?: string | null; workedMinutes: number; lateMinutes: number; user?: { name: string; employeeCode?: string | null } };
-type SummaryRow = { id: string; name: string; employeeCode?: string | null; present: number; halfDay: number; leave: number; absent: number; late: number; workedHours: number; percentage: number };
+type SummaryRow = { id: string; name: string; employeeCode?: string | null; weekOff: number; workingDays: number; present: number; halfDay: number; leave: number; absent: number; late: number; workedHours: number; percentage: number };
+type CalDay = { day: number; dow: number; status: string; late: number };
 
 function isoDaysAgo(days: number) {
   const d = new Date();
@@ -147,13 +149,14 @@ function RecordsView({ isManager }: { isManager: boolean }) {
 // ── Monthly per-staff summary ────────────────────────────────────────────────
 function MonthlySummary() {
   const [month, setMonth] = useState(() => new Date().toISOString().slice(0, 7));
-  const [data, setData] = useState<{ workingDays: number; staff: SummaryRow[] } | null>(null);
+  const [data, setData] = useState<{ staff: SummaryRow[] } | null>(null);
   const [loading, setLoading] = useState(true);
   const [markFor, setMarkFor] = useState<SummaryRow | null>(null);
+  const [calFor, setCalFor] = useState<SummaryRow | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
-    setData(await apiGet<{ workingDays: number; staff: SummaryRow[] }>(`/api/attendance/summary?month=${month}`));
+    setData(await apiGet<{ staff: SummaryRow[] }>(`/api/attendance/summary?month=${month}`));
     setLoading(false);
   }, [month]);
   useEffect(() => { load(); }, [load]);
@@ -165,10 +168,7 @@ function MonthlySummary() {
           <CalendarDays className="h-5 w-5 text-brand-600" />
           <h3 className="font-semibold">Monthly Summary</h3>
         </div>
-        <div className="flex items-center gap-3">
-          {data && <span className="text-sm text-slate-500">{data.workingDays} working days</span>}
-          <input type="month" value={month} onChange={(e) => setMonth(e.target.value)} className="input w-auto py-1.5 text-sm" />
-        </div>
+        <input type="month" value={month} onChange={(e) => setMonth(e.target.value)} className="input w-auto py-1.5 text-sm" />
       </div>
 
       {loading ? <div className="flex justify-center py-10"><Spinner className="h-7 w-7" /></div> : !data || data.staff.length === 0 ? (
@@ -178,21 +178,22 @@ function MonthlySummary() {
           <table className="min-w-full divide-y divide-slate-200 dark:divide-slate-800">
             <thead className="bg-slate-50 dark:bg-slate-800/50">
               <tr>
-                <th className="th">Staff</th><th className="th">Present</th><th className="th">Half-day</th>
+                <th className="th">Staff</th><th className="th">Week Off</th><th className="th">Work Days</th><th className="th">Present</th><th className="th">Half-day</th>
                 <th className="th">Leave</th><th className="th">Absent</th><th className="th">Late</th>
-                <th className="th">Hours</th><th className="th">Attendance</th><th className="th"></th>
+                <th className="th">Attendance</th><th className="th"></th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
               {data.staff.map((s) => (
                 <tr key={s.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/40">
                   <td className="td font-medium">{s.name}{s.employeeCode && <span className="ml-1 text-xs text-slate-400">({s.employeeCode})</span>}</td>
+                  <td className="td text-xs">{WEEKDAYS[s.weekOff]}</td>
+                  <td className="td">{s.workingDays}</td>
                   <td className="td font-semibold text-emerald-600">{s.present}</td>
                   <td className="td">{s.halfDay}</td>
                   <td className="td text-blue-600">{s.leave}</td>
                   <td className="td text-red-600">{s.absent}</td>
                   <td className="td text-amber-600">{s.late}</td>
-                  <td className="td">{s.workedHours}h</td>
                   <td className="td">
                     <div className="flex items-center gap-2">
                       <div className="h-1.5 w-16 overflow-hidden rounded-full bg-slate-200 dark:bg-slate-700">
@@ -201,7 +202,12 @@ function MonthlySummary() {
                       <span className="text-xs font-medium">{s.percentage}%</span>
                     </div>
                   </td>
-                  <td className="td"><button onClick={() => setMarkFor(s)} className="text-xs text-brand-600 hover:underline">Mark Leave</button></td>
+                  <td className="td">
+                    <div className="flex gap-2 text-xs">
+                      <button onClick={() => setCalFor(s)} className="text-brand-600 hover:underline">Calendar</button>
+                      <button onClick={() => setMarkFor(s)} className="text-brand-600 hover:underline">Mark</button>
+                    </div>
+                  </td>
                 </tr>
               ))}
             </tbody>
@@ -210,7 +216,52 @@ function MonthlySummary() {
       )}
 
       {markFor && <MarkLeaveModal staff={markFor} onClose={() => setMarkFor(null)} onDone={load} />}
+      {calFor && <CalendarModal staff={calFor} month={month} onClose={() => setCalFor(null)} />}
     </Card>
+  );
+}
+
+const DAY_STYLE: Record<string, { bg: string; label: string }> = {
+  PRESENT: { bg: 'bg-emerald-500 text-white', label: 'Present' },
+  HALF_DAY: { bg: 'bg-amber-400 text-white', label: 'Half-day' },
+  ON_LEAVE: { bg: 'bg-blue-500 text-white', label: 'Leave' },
+  ABSENT: { bg: 'bg-red-500 text-white', label: 'Absent' },
+  WEEK_OFF: { bg: 'bg-slate-300 text-slate-600 dark:bg-slate-700 dark:text-slate-300', label: 'Week off' },
+  FUTURE: { bg: 'bg-slate-100 text-slate-300 dark:bg-slate-800 dark:text-slate-600', label: '' },
+};
+
+function CalendarModal({ staff, month, onClose }: { staff: SummaryRow; month: string; onClose: () => void }) {
+  const [data, setData] = useState<{ firstDow: number; days: CalDay[] } | null>(null);
+
+  useEffect(() => {
+    apiGet<{ firstDow: number; days: CalDay[] }>(`/api/attendance/calendar?userId=${staff.id}&month=${month}`).then(setData).catch(() => {});
+  }, [staff.id, month]);
+
+  return (
+    <Modal open onClose={onClose} title={`${staff.name} · ${month}`} wide>
+      {!data ? <div className="flex justify-center py-10"><Spinner className="h-7 w-7" /></div> : (
+        <div className="space-y-4">
+          <div className="grid grid-cols-7 gap-1.5">
+            {WEEKDAYS_SHORT.map((d) => <div key={d} className="text-center text-xs font-semibold text-slate-400">{d}</div>)}
+            {Array.from({ length: data.firstDow }).map((_, i) => <div key={`pad-${i}`} />)}
+            {data.days.map((d) => {
+              const st = DAY_STYLE[d.status] ?? DAY_STYLE.FUTURE;
+              return (
+                <div key={d.day} className={`flex aspect-square flex-col items-center justify-center rounded-lg text-sm font-medium ${st.bg}`} title={st.label}>
+                  <span>{d.day}</span>
+                  {d.late > 0 && <span className="text-[9px] leading-none">late</span>}
+                </div>
+              );
+            })}
+          </div>
+          <div className="flex flex-wrap gap-3 text-xs">
+            {Object.entries(DAY_STYLE).filter(([k]) => k !== 'FUTURE').map(([k, v]) => (
+              <span key={k} className="flex items-center gap-1.5"><span className={`h-3 w-3 rounded ${v.bg}`} />{v.label}</span>
+            ))}
+          </div>
+        </div>
+      )}
+    </Modal>
   );
 }
 

@@ -74,3 +74,7 @@ export const PAYMENT_METHODS = ['CASH', 'UPI', 'RAZORPAY', 'PAYTM', 'PHONEPE', '
 export const INVOICE_STATUSES = ['PENDING', 'PARTIAL', 'PAID', 'OVERDUE', 'CANCELLED'];
 export const ASSET_TYPES = ['ONT', 'ROUTER', 'SET_TOP_BOX', 'CABLE', 'SPLITTER', 'ACCESSORY'];
 export const ASSET_STATUSES = ['AVAILABLE', 'ASSIGNED', 'DEFECTIVE', 'RETURNED'];
+
+// Day of week: index = 0 (Sunday) .. 6 (Saturday)
+export const WEEKDAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+export const WEEKDAYS_SHORT = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];

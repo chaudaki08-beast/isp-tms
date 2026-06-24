@@ -16,6 +16,7 @@ const SAFE_SELECT = {
   status: true,
   profilePhoto: true,
   teamLeaderId: true,
+  weekOff: true,
   teamLeader: { select: { id: true, name: true } },
   createdAt: true,
 } satisfies Prisma.UserSelect;
@@ -68,6 +69,7 @@ export const POST = handle(async (req: Request) => {
       employeeCode: body.employeeCode,
       teamLeaderId: body.teamLeaderId || null,
       address: body.address,
+      weekOff: body.weekOff ?? null,
       ...(body.role === Role.TECHNICIAN
         ? { technicianProfile: { create: {} } }
         : {}),
