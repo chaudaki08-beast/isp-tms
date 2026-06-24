@@ -53,7 +53,7 @@ export const checkOutSchema = checkInSchema;
 export const markAttendanceSchema = z.object({
   userId: z.string(),
   date: z.string(), // yyyy-mm-dd
-  status: z.enum(['PRESENT', 'HALF_DAY', 'ON_LEAVE', 'ABSENT']),
+  status: z.enum(['PRESENT', 'HALF_DAY', 'ON_LEAVE', 'WEEK_OFF', 'ABSENT']),
   note: z.string().optional(),
 });
 

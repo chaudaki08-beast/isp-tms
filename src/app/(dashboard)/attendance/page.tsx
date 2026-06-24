@@ -11,7 +11,7 @@ import { WEEKDAYS, WEEKDAYS_SHORT } from '@/lib/labels';
 
 type Today = { checkedIn: boolean; checkedOut: boolean; record: { checkInAt?: string; checkOutAt?: string; lateMinutes: number; workedMinutes: number } | null };
 type Row = { id: string; date: string; status: string; checkInAt?: string | null; checkOutAt?: string | null; workedMinutes: number; lateMinutes: number; user?: { name: string; employeeCode?: string | null } };
-type SummaryRow = { id: string; name: string; employeeCode?: string | null; weekOff: number; workingDays: number; present: number; halfDay: number; leave: number; absent: number; late: number; workedHours: number; percentage: number };
+type SummaryRow = { id: string; name: string; employeeCode?: string | null; defaultWeekOff: number; weekOff: number; workingDays: number; present: number; halfDay: number; leave: number; absent: number; late: number; workedHours: number; percentage: number };
 type CalDay = { day: number; dow: number; status: string; late: number };
 
 function isoDaysAgo(days: number) {
@@ -187,7 +187,7 @@ function MonthlySummary() {
               {data.staff.map((s) => (
                 <tr key={s.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/40">
                   <td className="td font-medium">{s.name}{s.employeeCode && <span className="ml-1 text-xs text-slate-400">({s.employeeCode})</span>}</td>
-                  <td className="td text-xs">{WEEKDAYS[s.weekOff]}</td>
+                  <td className="td text-xs">{WEEKDAYS[s.defaultWeekOff]} <span className="text-slate-400">({s.weekOff})</span></td>
                   <td className="td">{s.workingDays}</td>
                   <td className="td font-semibold text-emerald-600">{s.present}</td>
                   <td className="td">{s.halfDay}</td>
@@ -281,6 +281,7 @@ function MarkLeaveModal({ staff, onClose, onDone }: { staff: SummaryRow; onClose
         <Field label="Status">
           <select className="input" value={status} onChange={(e) => setStatus(e.target.value)}>
             <option value="ON_LEAVE">On Leave</option>
+            <option value="WEEK_OFF">Week Off (this date)</option>
             <option value="HALF_DAY">Half Day</option>
             <option value="PRESENT">Present</option>
             <option value="ABSENT">Absent (clear record)</option>
